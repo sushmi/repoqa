@@ -1,0 +1,59 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{acl}[2024/01/01 ACL Style]
+\RequirePackage[a4paper,margin=2.5cm,columnsep=0.6cm]{geometry}
+\RequirePackage{times}
+\RequirePackage{latexsym}
+\RequirePackage[T1]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{microtype}
+\RequirePackage{graphicx}
+\RequirePackage{hyperref}
+\RequirePackage{url}
+\RequirePackage{booktabs}
+\RequirePackage{xcolor}
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage{natbib}
+\RequirePackage{tikz}
+\RequirePackage{float}
+\RequirePackage{caption}
+\RequirePackage{subcaption}
+\RequirePackage{enumitem}
+\RequirePackage{tabularx}
+\RequirePackage{array}
+\RequirePackage{multirow}
+\RequirePackage{pifont}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, backgrounds, decorations.pathreplacing}
+
+\setlength{\bibsep}{2pt plus 0.5pt minus 0.5pt}
+\bibliographystyle{apalike}
+
+\renewcommand{\maketitle}{%
+  \twocolumn[%
+    \begin{center}
+      {\Large\bfseries \@title \par}
+      \vspace{0.5em}
+      {\large \@author \par}
+      \vspace{0.3em}
+      {\normalsize \@date \par}
+      \vspace{1.5em}
+    \end{center}
+  ]%
+}
+
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-2.5ex plus -1ex minus -.2ex}{1.5ex plus .2ex}%
+  {\normalfont\large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-2ex plus -0.5ex minus -.2ex}{1ex plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}%
+  {-1.5ex plus -0.5ex minus -.2ex}{0.5ex plus .2ex}%
+  {\normalfont\normalsize\bfseries\itshape}}
+
+\renewenvironment{abstract}{%
+  \begin{center}{\bfseries\normalsize Abstract}\end{center}
+  \begin{quote}\small
+}{\end{quote}\vspace{1em}}
+
+\endinput
