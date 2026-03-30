@@ -1,0 +1,533 @@
+\documentclass[stu,11pt]{article}
+\usepackage{acl}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit}
+% --- CUSTOM COMMANDS & COLORS ---
+\newcommand{\subtitle}[1]{{\scriptsize #1}} % FIXED: Defined missing subtitle command
+
+% Define custom colors (can be placed here or inside the document)
+\definecolor{boxblue}{RGB}{235, 245, 255}
+\definecolor{borderblue}{RGB}{100, 149, 237}
+\definecolor{boxgreen}{RGB}{232, 245, 233}
+\definecolor{bordergreen}{RGB}{76, 175, 80}
+\definecolor{boxpurple}{RGB}{243, 229, 245}
+\definecolor{borderpurple}{RGB}{156, 39, 176}
+\definecolor{boxorange}{RGB}{255, 243, 224}
+\definecolor{borderorange}{RGB}{255, 152, 0}
+\definecolor{boxgray}{RGB}{238, 238, 238}
+\definecolor{bordergray}{RGB}{158, 158, 158}
+
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black}
+
+\setlist{nosep,leftmargin=1.2em}
+
+\title{RepoQA: A Retrieval-Augmented Question Answering System\\for Understanding GitHub Repositories}
+
+\author{
+  \textbf{Sushmi Shrestha} \\
+  Faculty of Advanced Science and Technology \\
+  Asian Institute of Technology\\
+  \texttt{st126526@ait.asia}
+}
+
+\date{}
+
+\begin{document}
+\maketitle
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+\begin{abstract}
+Developers spend the majority of their time reading and understanding code, yet current AI coding assistants primarily focus on code generation and completion. When developers encounter an unfamiliar repository, they face questions about architecture (``How does authentication work here?''), code logic (``What does this middleware do?''), and deployment (``How is this service configured?'') that existing tools cannot reliably answer. This \textbf{RepoQA}, a retrieval-augmented question answering system that helps developers understand GitHub repositories through natural language interaction. The approach introduces three key innovations: (1)~a hierarchical summarization pipeline that generates project-, directory-, and file-level descriptions to enable multi-level understanding; (2)~a hybrid retrieval engine combining semantic search, BM25 keyword matching, and dependency-graph traversal with question-type-aware routing; and (3)~structured explanation prompts that produce grounded, citation-rich answers. The evaluation of RepoQA on the CoReQA benchmark (1,563 QA pairs from 176 repositories across four programming languages) using the LLM-as-a-judge framework. The experiments aim to demonstrate that hierarchical hybrid retrieval significantly outperforms the BM25 baseline reported in prior work (accuracy: 6.91/10, completeness: 6.34/10) and investigate the contribution of each architectural component through comprehensive ablation studies. This work addresses the critical gap between code generation tools and developer comprehension needs, advancing the state of repository-level code understanding.
+\end{abstract}
+
+% ============================================================
+% 1. INTRODUCTION (Wobbrock 5-part structure)
+% ============================================================
+\section{Introduction}
+
+% Part 1: Problem / Motivation
+Software development is fundamentally a comprehensive activity. Studies consistently report that developers spend 58--70\% of their time reading and understanding existing code rather than writing new code \citep{xia2018measuring}. When onboarding to an unfamiliar repository, developers face a barrage of questions: \textit{How is this project structured? What does this function do? Why was this design pattern chosen? How do I deploy this service locally?} These questions span multiple levels of abstraction---from high-level architecture down to individual function logic---and frequently require tracing dependencies across multiple files.
+
+% Part 2: Gap in existing work
+Despite rapid advances in AI-powered coding tools, the current landscape exhibits a fundamental mismatch. Tools such as GitHub Copilot \citep{chen2021evaluating}, Cursor, and Claude Code excel at code completion and generation but are not designed for code understanding and explanation. On the research side, most benchmarks target code generation \citep{chen2021evaluating, austin2021program} or bug fixing \citep{jimenez2024swebench}, with limited attention to question answering. Recent work by \citet{chen2025coreqa} demonstrates this gap starkly: even GPT-4o with BM25 retrieval scores only 6.91/10 on accuracy for repository-level QA, and completeness scores languish at 6.34/10. The authors attribute this to BM25's inability to capture semantic relationships in code, where terms exhibit minimal variation and keyword matching misses crucial context.
+
+% Part 3: The approach
+To address this gap, the \textbf{RepoQA}, a retrieval-augmented question answering system designed specifically for repository-level code comprehension. RepoQA introduces three innovations. First, develop a \textit{hierarchical summarization pipeline} that generates project-, directory-, and file-level summaries, enabling the system to answer questions at multiple levels of abstraction (following \citealp{tufek2025hierarchical}). Second, design a \textit{hybrid retrieval engine} that fuses semantic search, BM25, and dependency-graph traversal, with a question-type router that selects the appropriate retrieval strategy based on whether the question targets architecture, logic, or deployment. Third, employ \textit{structured explanation prompts} that organize context top-down (project summary $\rightarrow$ directory summary $\rightarrow$ code chunks) and require the LLM to cite specific files and line numbers, directly optimizing for the accuracy and completeness dimensions identified as challenging by \citet{chen2025coreqa}.
+
+% Part 4: Contributions
+This paper makes the following contributions:
+\begin{enumerate}
+    \item Formalize the task of repository-level question answering with a taxonomy of developer questions (architecture, logic, deployment) and propose a multi-level retrieval strategy tailored to each question type.
+    \item Design a complete RAG pipeline with hierarchical summarization, hybrid retrieval, and structured prompt generation for code explanation.
+    \item Provide a comprehensive evaluation plan using the CoReQA benchmark with LLM-as-a-judge evaluation across four quality dimensions, including ablation studies isolating the contribution of each component.
+\end{enumerate}
+
+% Part 5: Research questions
+This work is guided by the following three research questions:
+
+\noindent\textbf{RQ1:} Does hierarchical hybrid retrieval (semantic + BM25 + structural) significantly improve answer quality over BM25-only retrieval for repository-level code QA?
+
+\noindent\textbf{RQ2:} How does question-type-aware routing (architecture vs.\ logic vs.\ deployment) affect retrieval precision and answer completeness compared to a uniform retrieval strategy?
+
+\noindent\textbf{RQ3:} What is the individual contribution of each system component (hierarchical summaries, hybrid fusion, query expansion, structured prompts) to overall QA performance?
+
+% Expected results
+The hypotheses are -- (1) hybrid retrieval will outperform BM25 by at least 0.5 points on accuracy and completeness (CoReQA scale), driven by semantic search capturing conceptual relevance that BM25 misses; (2) question-type routing will most benefit architecture questions, which require broad context, while logic questions will benefit most from function-level retrieval; and (3) hierarchical summaries will have the largest individual impact on completeness, as they provide the multi-level context needed to address all aspects of a question.
+
+% ============================================================
+% 2. RELATED WORK
+% ============================================================
+\section{Related Work}
+
+\subsection{Code Question Answering}
+
+Early code QA research focuses on snippet-level understanding. \citet{liu2021codeqa} introduce CodeQA, generating QA pairs from code comments at the function level, while CS1QA \citep{lee2022cs1qa} targets introductory programming education. These benchmarks are limited to isolated code fragments and do not address the cross-file reasoning required in real-world repositories.
+
+Recent work has shifted toward repository-level QA. \citet{chen2025coreqa} introduce CoReQA, constructing 1,563 QA pairs from GitHub issues and comments across 176 repositories in four languages. Their evaluation reveals that even GPT-4o scores below 7/10 on accuracy, with BM25 providing negligible improvement. \citet{peng2025sweqa} propose SWE-QA, specifically targeting module-level architectural comprehension---understanding how modules interact, their architectural roles, and semantic contracts between them. \citet{strich2024improving} present a self-alignment pipeline for repository code QA at ACL~2024, using RAG over the Spyder IDE codebase. CodeRepoQA \citep{coderepoqa2024} offers a complementary multi-turn benchmark derived from repository discussions.
+
+\textbf{Gap:} While these benchmarks define the problem, none propose a comprehensive retrieval solution. CoReQA identifies BM25's inadequacy but does not explore alternatives. SWE-QA introduces an agent-based approach but lacks ablation analysis. The work directly addresses the retrieval gap by proposing and evaluating a hierarchical hybrid pipeline.
+
+\subsection{Retrieval-Augmented Generation for Code}
+
+RAG has become the dominant paradigm for augmenting LLMs with external knowledge \citep{gao2024rag}. In the code domain, RepoCoder \citep{zhang2023repocoder} introduces an iterative retrieval-generation loop for code completion, while DraCo \citep{cheng2024draco} uses dataflow-guided retrieval. CAST \citep{cast2025} demonstrates that AST-aware chunking outperforms fixed-size chunking for code RAG. CodeRAG-Bench \citep{wang2025coderag} provides a systematic evaluation of 10 retrievers and 10 LMs on code generation tasks.
+
+\textbf{Gap:} These approaches optimize retrieval for code \textit{completion}, not code \textit{understanding}. The retrieved context for completion (next token prediction) differs fundamentally from what is needed for explanation (architectural context, design rationale, cross-file dependencies). The work adapts RAG for the explanation task through hierarchical summarization and question-type routing.
+
+\subsection{Repository-Level Code Understanding}
+
+\citet{tufek2025hierarchical} propose hierarchical summarization that constructs project-, directory-, and file-level summaries for bug localization, achieving state-of-the-art results by guiding LLMs through a top-down search. CodePlan \citep{bairi2024codeplan} frames repository-level tasks as planning problems but targets code editing, not comprehension. Gistify \citep{gistify2025} evaluates codebase-level understanding through execution-based metrics but does not propose a retrieval method.
+
+\textbf{Gap:} Hierarchical summarization has been applied to code search and bug localization, but not to developer-facing QA. Adapt and extend this approach specifically for the question-answering setting, combining it with hybrid retrieval and structured explanation prompts.
+
+% ============================================================
+% 3. METHODOLOGY
+% ============================================================
+\section{Methodology}
+
+Figure~\ref{fig:architecture} presents the overall architecture of RepoQA, which consists of four main components: (1)~repository ingestion and hierarchical summarization, (2)~hybrid retrieval with question-type routing, (3)~structured prompt generation, and (4)~answer generation with grounding verification.
+
+\begin{figure*}[t]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tikzpicture}[
+    font=\sffamily\small,
+    node distance=0.8cm and 0.6cm,
+    base/.style={rectangle, rounded corners=3pt, draw, align=center, minimum height=1.1cm, minimum width=2.4cm, line width=0.8pt},
+    subtitle/.style={font=\sffamily\scriptsize, inner sep=2pt},
+    % Styles using your preamble colors
+    graybox/.style={base, fill=boxgray, draw=bordergray},
+    bluebox/.style={base, fill=boxblue, draw=borderblue},
+    greenbox/.style={base, fill=boxgreen, draw=bordergreen},
+    purplebox/.style={base, fill=boxpurple, draw=borderpurple},
+    orangebox/.style={base, fill=boxorange, draw=borderorange},
+    % Arrows
+    arrow/.style={-{Stealth[scale=1.2]}, draw=gray!80, line width=0.8pt},
+    dashedarrow/.style={arrow, dashed},
+    % Stages
+    stage/.style={draw, dashed, inner sep=12pt, rounded corners=5pt, line width=0.6pt}
+]
+
+% --- STAGE 1: INDEXING ---
+\node[graybox] (repo) {GitHub repo};
+\node[bluebox, right=of repo] (clone) {Clone \& filter \\ \subtitle{Exclude noise}};
+\node[bluebox, right=of clone] (tree) {Tree-sitter parser \\ \subtitle{AST-aware chunks}};
+\node[greenbox, right=of tree] (noncode) {Non-code indexer \\ \subtitle{README, Docker, CI}};
+
+\node[purplebox, below=0.8cm of clone] (summarizer) {Hierarchical summarizer \\ \subtitle{Project $\to$ directory $\to$ file}};
+\node[bluebox, right=of summarizer] (embedding) {Embedding model \\ \subtitle{all-mpnet-base-v2}};
+\node[greenbox, right=of embedding] (chroma) {ChromaDB + BM25 \\ \subtitle{Dual index store}};
+\node[greenbox, below=0.5cm of chroma] (depgraph) {Dependency graph \\ \subtitle{Import relationships}};
+
+% The "Fit" node with internal label
+\node[stage, borderblue, fit=(repo) (noncode) (depgraph), 
+    label={[anchor=north west, text=borderblue, font=\bfseries, xshift=10pt, yshift=-2pt]north west:Stage 1: Repository indexing (offline, once per repo)}] (stage1) {};
+
+% --- STAGE 2: RETRIEVAL ---
+\node[graybox, below=2.5cm of repo] (q) {Developer \\ question};
+\node[purplebox, right=of q] (class) {Question classifier \\ \subtitle{Arch / logic / deploy}};
+\node[purplebox, right=of class] (router) {Strategy router \\ \subtitle{Selects retrieval path}};
+
+\node[greenbox, right=of router] (bm25) {BM25 keyword search \\ \subtitle{Exact identifiers match}};
+\node[bluebox, left=0.4cm of bm25] (semantic) {Semantic search \\ \subtitle{Cosine similarity, top-15}};
+\node[orangebox, right=0.4cm of bm25] (structural) {Structural search \\ \subtitle{Dep. graph traversal}};
+
+\node[purplebox, below=0.8cm of bm25] (rrf) {Reciprocal rank fusion (RRF) \\ \subtitle{Merge + re-rank results}};
+
+\node[stage, borderpurple, fit=(q) (structural) (rrf), label={[text=borderpurple, font=\bfseries]above left:Stage 2: Hybrid retrieval with question-type routing (per query)}] (stage2) {};
+
+% --- STAGE 3: GENERATION ---
+\node[orangebox, below=1.8cm of semantic] (prompt) {Structured prompt \\ \subtitle{Summary $\to$ code $\to$ question}};
+\node[orangebox, right=of prompt] (llm) {LLM generator \\ \subtitle{Qwen-7B}};
+\node[orangebox, right=of llm] (citation) {Citation verifier \\ \subtitle{Check file paths exist}};
+\node[greenbox, right=of citation] (answer) {Answer};
+
+\node[stage, borderorange, fit=(prompt) (answer), label={[text=borderorange, font=\bfseries]above left:Stage 3: Structured QA generation (per query)}] (stage3) {};
+
+% --- STAGE 4: INTERFACE ---
+\node[greenbox, below=1.8cm of prompt] (ui) {Streamlit chat UI \\ \subtitle{Web interface}};
+\node[greenbox, right=of ui] (memory) {Conversation memory \\ \subtitle{Last 3--5 exchanges}};
+\node[greenbox, right=of memory] (source) {Source references \\ \subtitle{Clickable file:line links}};
+
+\node[stage, bordergreen, fit=(ui) (source), label={[text=bordergreen, font=\bfseries]above left:Stage 4: Conversational interface}] (stage4) {};
+
+% --- CONNECTIONS ---
+\draw[arrow] (repo) -- (clone);
+\draw[arrow] (clone) -- (tree);
+\draw[arrow] (tree) -- (noncode);
+\draw[dashedarrow] (repo.south) |- (summarizer.west);
+\draw[arrow] (summarizer) -- (embedding);
+\draw[arrow] (embedding) -- (chroma);
+\draw[arrow] (noncode) -- (chroma);
+\draw[arrow] (chroma) -- (depgraph);
+
+\draw[arrow] (q) -- (class);
+\draw[arrow] (class) -- (router);
+\draw[arrow] (router) -- (semantic.north west);
+\draw[arrow] (router) -- (bm25);
+\draw[arrow] (router) -- (structural.north west);
+\draw[arrow] (semantic) -- (rrf);
+\draw[arrow] (bm25) -- (rrf);
+\draw[arrow] (structural) -- (rrf);
+
+\draw[dashedarrow] (depgraph) -- (structural);
+\draw[dashedarrow] (rrf) -- (prompt);
+\draw[dashedarrow] (answer) -- (ui);
+
+\draw[arrow] (prompt) -- (llm);
+\draw[arrow] (llm) -- (citation);
+\draw[arrow] (citation) -- (answer);
+
+\draw[arrow] (ui) -- (memory);
+\draw[arrow] (memory) -- (source);
+
+\node[below=0.4cm of stage4, font=\sffamily\scriptsize\itshape, text=gray] {Stage 1 runs once per repo (offline). Stages 2--4 run per developer question (online).};
+
+\end{tikzpicture}
+}
+\caption{Architecture of the RepoQA system. Stage~1 performs offline indexing with hierarchical summarization. Stage~2 retrieves relevant context using hybrid search with question-type routing. Stage~3 generates grounded explanations with citation verification.}
+\label{fig:architecture}
+\end{figure*}
+
+
+\subsection{Repository Ingestion \& Hierarchical Summarization}
+\label{sec:ingestion}
+
+Given a GitHub repository $R$, we first clone it and traverse its file tree, filtering by language extensions and excluding generated artifacts (e.g., \texttt{node\_modules}, \texttt{build/}).
+
+\paragraph{Code Parsing.}  Use Tree-sitter to parse each source file into an Abstract Syntax Tree (AST) and extract semantic units: functions, classes, module-level code, docstrings, and comments. Following \citet{cast2025}, we employ AST-aware chunking rather than fixed-size sliding windows, ensuring each chunk respects syntactic boundaries.
+
+\paragraph{Non-Code Indexing.}  Create index of non-code files critical for architecture and deployment questions: \texttt{README.md}, \texttt{Dockerfile}, CI/CD configurations, \texttt{package.json}, and environment files. These are chunked using standard text splitting.
+
+\paragraph{Hierarchical Summarization.} Inspired by \citet{tufek2025hierarchical} -- generate summaries at three levels using an LLM:
+\begin{itemize}
+    \item \textbf{Project-level:} A 1--2 paragraph summary of the repository's purpose, architecture, and key modules, generated from the README and top-level directory listing.
+    \item \textbf{Directory-level:} For each top-level directory, a summary describing its role, key files, and relationship to other directories.
+    \item \textbf{File-level:} For each source file, a summary of its exports (classes, functions), dependencies, and purpose.
+\end{itemize}
+
+\paragraph{Embedding \& Storage.} All chunks (code, non-code, and summaries at each level) are embedded using \texttt{text-embedding-3-small} and stored in ChromaDB with metadata (file path, chunk type, directory, language, summary level).
+
+\paragraph{Dependency Graph.} Construct an import graph $G = (V, E)$ where nodes $V$ represent source files and edges $E$ represent import relationships. This enables structural retrieval: if file $A$ is relevant and imports file $B$, then $B$ is likely also relevant.
+
+\subsection{Hybrid Retrieval with Question-Type Routing}
+\label{sec:retrieval}
+
+\paragraph{Question Classification.} Classify each developer question into one of three categories using a lightweight LLM prompt:
+\begin{itemize}
+    \item \textbf{Architecture}: Questions about project structure, module relationships, design patterns (e.g., ``How does authentication work?'').
+    \item \textbf{Logic}: Questions about specific function behavior, algorithms, or data transformations (e.g., ``What does \texttt{validate\_token()} do?'').
+    \item \textbf{Deployment}: Questions about configuration, build process, environment setup (e.g., ``How is Docker configured?'').
+\end{itemize}
+
+\paragraph{Retrieval Strategy Routing.} Each question type triggers a different retrieval strategy:
+\begin{itemize}
+    \item Architecture $\rightarrow$ Start with project and directory summaries, then expand to file-level chunks in identified modules (top-down).
+    \item Logic $\rightarrow$ Start with function-level chunks via semantic search, then include caller/callee context from the dependency graph.
+    \item Deployment $\rightarrow$ Prioritize non-code files (Dockerfiles, CI/CD, configs), supplemented by relevant code handlers.
+\end{itemize}
+
+\paragraph{Hybrid Fusion.} Within each strategy, proposed to combine three retrieval signals:
+\begin{enumerate}
+    \item \textbf{Semantic search:} Cosine similarity over embedded chunks (top-$k$=15).
+    \item \textbf{BM25:} Keyword matching over raw code text, essential for exact identifier names.
+    \item \textbf{Structural search:} Dependency graph traversal---if chunk from file $A$ is retrieved and $A$ imports $B$, boost $B$'s chunks.
+\end{enumerate}
+
+Results are fused using Reciprocal Rank Fusion (RRF):
+\begin{equation}
+    \text{RRF}(d) = \sum_{r \in \{S, B, G\}} \frac{1}{k + \text{rank}_r(d)}
+\end{equation}
+where $S$, $B$, $G$ denote semantic, BM25, and graph-based rankings respectively, and $k=60$ is a smoothing constant.
+
+\paragraph{Query Expansion.} Before retrieval, we use the LLM to expand the developer's question into additional search terms. For example, ``How does auth work?'' expands to include \{\texttt{authentication}, \texttt{login}, \texttt{token}, \texttt{session}, \texttt{middleware}\}.
+
+\subsection{Structured Prompt Generation}
+\label{sec:prompts}
+
+Retrieved context is organized into a structured prompt designed for explanation (not code completion):
+
+\begin{enumerate}
+    \item \textbf{System instruction:} Role definition (``You are an expert on the \{repo\_name\} codebase. Explain using ONLY the provided context. Cite file paths and line numbers.'').
+    \item \textbf{Project summary:} High-level repo description.
+    \item \textbf{Directory summaries:} Summaries of relevant modules.
+    \item \textbf{Code chunks:} Retrieved code with file path headers
+    \item \textbf{Developer question:} The original question.
+\end{enumerate}
+
+This top-down ordering mirrors how a human senior developer would explain code: starting with the big picture, then zooming into details.
+
+\subsection{Answer Generation \& Grounding Verification}
+\label{sec:generation}
+
+The LLM generates a structured answer with: (a) a brief overview, (b) detailed explanation with code snippets, and (c) file references. Post-generation, a \textit{citation verifier} checks that every cited file path and function name exists in the repository. Invalid citations are flagged or removed, mitigating hallucination.
+
+% ============================================================
+% 4. DATA
+% ============================================================
+\section{Datasets}
+
+\subsection{Primary Evaluation: CoReQA}
+This paper adopts CoReQA \citep{chen2025coreqa} as the primary evaluation benchmark. CoReQA contains 1,563 QA pairs derived from GitHub issues and comments across 176 repositories in four programming languages (Python: 439, Java: 209, Go: 371, TypeScript: 544). Questions include mixed natural language and code snippets, and reference answers are constructed from community-validated issue discussions (requiring $\geq$3 positive reactions). Each QA pair includes 10 BM25-retrieved reference contexts.
+
+\subsection{Secondary Evaluation: SWE-QA}
+SWE-QA \citep{peng2025sweqa} provides architectural comprehension questions specifically targeting cross-module understanding. The experiment is it to evaluate RQ2 (question-type routing effectiveness), as its questions specifically require multi-file reasoning.
+
+\subsection{Development Repositories}
+For system development and debugging, select 1--3 open-source repositories of moderate size (5K--50K lines) spanning Python and TypeScript, including at least one repository the development team is unfamiliar with.
+
+\subsection{Data Preprocessing}
+For each repository, preprocessing involves: (1)~cloning and file-tree filtering (excluding generated files, binary assets, test fixtures exceeding 1000 lines); (2)~AST-based parsing and chunking with Tree-sitter, targeting chunks of 256--512 tokens; (3)~hierarchical summary generation at three levels; (4)~embedding all chunks and summaries; and (5)~constructing the import dependency graph.
+
+% ============================================================
+% 5. EVALUATION METRICS
+% ============================================================
+\section{Evaluation Metrics}
+
+The experiment uses CoReQA's LLM-as-a-judge framework \citep{chen2025coreqa}, which evaluates generated answers across four dimensions on a 1--10 scale:
+
+\begin{itemize}
+    \item \textbf{Accuracy (Acc):} Factual correctness compared to the reference answer.
+    \item \textbf{Completeness (Cmpt):} Whether all key aspects of the question are addressed.
+    \item \textbf{Relevance (Rel):} Whether the answer addresses the core concern.
+    \item \textbf{Clarity (Clar):} Logical structure and readability.
+\end{itemize}
+
+The paper additionally report \textbf{Pairwise Comparison Evaluation (PCE)} using Elo scoring for inter-system comparison, \textbf{Retrieval Recall@$k$} ($k$=5, 10) to measure retrieval quality independently of generation, and \textbf{Citation Accuracy} (fraction of cited file paths that exist in the repository).
+
+Each LLM-as-a-judge evaluation is executed 3 times and we report mean $\pm$ standard deviation to account for judge variability ($\approx$5.5\% per CoReQA's validation).
+
+% ============================================================
+% 6. EXPERIMENT DESIGN
+% ============================================================
+\section{Experiment Design}
+
+\subsection{Baselines}
+\begin{itemize}
+    \item \textbf{No Retrieval:} LLM answers using only the question (lower bound).
+    \item \textbf{BM25 Only:} LangChain chunking + BM25 retrieval (CoReQA's reported baseline).
+    \item \textbf{Semantic Only:} Embedding-based retrieval without BM25 or structural context.
+    \item \textbf{Hybrid (no summaries):} Semantic + BM25 + structural, without hierarchical summaries.
+    \item \textbf{RepoQA (full):} Complete system with all components.
+\end{itemize}
+
+\subsection{Ablation Study (RQ3)}
+To isolate each component's contribution, we run the following ablations, each removing one component:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Summ.} & \textbf{Hybrid} & \textbf{QExp.} & \textbf{Route} \\
+\midrule
+Full RepoQA & \checkmark & \checkmark & \checkmark & \checkmark \\
+$-$ Summaries & & \checkmark & \checkmark & \checkmark \\
+$-$ Hybrid (semantic only) & \checkmark & & \checkmark & \checkmark \\
+$-$ Query expansion & \checkmark & \checkmark & & \checkmark \\
+$-$ Type routing & \checkmark & \checkmark & \checkmark & \\
+BM25 baseline & & & & \\
+\bottomrule
+\end{tabular}
+\caption{Ablation configurations for RQ3.}
+\label{tab:ablation}
+\end{table}
+
+\subsection{Expected Results}
+Based on CoReQA's reported baselines and our preliminary experiments, we anticipate results in the ranges shown in Table~\ref{tab:expected}.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{System} & \textbf{Acc} & \textbf{Cmpt} & \textbf{Rel} & \textbf{Clar} \\
+\midrule
+No Retrieval & 6.85 & 6.27 & 7.81 & 8.40 \\
+BM25 (reported) & 6.91 & 6.34 & 7.86 & 8.42 \\
+RepoQA (expected) & \textbf{7.4--7.8} & \textbf{6.8--7.2} & \textbf{8.0--8.3} & \textbf{8.5--8.7} \\
+\bottomrule
+\end{tabular}
+\caption{Expected performance ranges on CoReQA (GPT-4o as generator). ``Reported'' values from \citet{chen2025coreqa}.}
+\label{tab:expected}
+\end{table}
+
+% ============================================================
+% 7. DISCUSSION
+% ============================================================
+\section{Discussion}
+
+\subsection{How Data and Approach Address the RQs}
+
+\textbf{RQ1} is evaluated by comparing the full RepoQA system against the BM25-only baseline on all 1,563 CoReQA pairs. The four-dimensional LLM-as-a-judge evaluation provides nuanced insight: we expect hybrid retrieval to most improve \textit{completeness} (by retrieving context from multiple related files) and \textit{accuracy} (by providing the correct code definitions rather than superficially similar text).
+
+\textbf{RQ2} is evaluated by comparing question-type-routed retrieval against uniform retrieval, with CoReQA's questions manually categorized into architecture/logic/deployment types. The expectation is the largest gains on architecture questions, where the hierarchical strategy (project $\rightarrow$ directory $\rightarrow$ file) provides crucial structural context that a flat retrieval misses.
+
+\textbf{RQ3} is evaluated through the ablation study (Table~\ref{tab:ablation}), quantifying each component's marginal contribution. The hypothesis that hierarchical summaries contribute most to completeness, hybrid fusion contributes most to accuracy, and query expansion contributes most to relevance.
+
+\subsection{Broader Implications}
+
+If the hybrid retrieval approach demonstrates significant improvement over BM25, this has immediate practical implications for AI coding assistants. The same pipeline could be integrated into IDE chat interfaces (Cursor, JetBrains AI), documentation generators, and developer onboarding tools. The hierarchical summarization layer is also independently valuable: it produces human-readable project documentation as a byproduct of the indexing process.
+
+% ============================================================
+% 8. PROGRESS SUMMARY
+% ============================================================
+\section{Summary of Progress}
+
+\subsection{Completed}
+\begin{itemize}
+    \item Literature review of 8 core papers spanning code QA, RAG for code, and repository-level understanding.
+    \item System architecture design with four-layer pipeline.
+    \item Technology stack selection: Python, Tree-sitter, ChromaDB, LangChain, OpenAI/Claude APIs.
+    \item CoReQA benchmark downloaded and analyzed (20+ QA pairs examined in detail).
+    \item Question taxonomy defined (architecture / logic / deployment) with examples from CoReQA.
+    \item Evaluation framework defined using CoReQA's LLM-as-a-judge with ablation study design.
+    \item Project repository initialized with README and environment configuration.
+\end{itemize}
+
+\subsection{Remaining Work}
+\begin{itemize}
+    \item Repository ingestion pipeline (Tree-sitter parsing, AST-aware chunking).
+    \item Hierarchical summarization prompts and generation pipeline.
+    \item Embedding pipeline and ChromaDB integration.
+    \item Hybrid retrieval engine with RRF fusion.
+    \item Question classifier and type-aware routing.
+    \item Structured prompt templates and hallucination checker.
+    \item Web UI (Streamlit) with source reference linking.
+    \item Full CoReQA benchmark evaluation.
+    \item Ablation study and user study (3--5 developers).
+    \item Final report and presentation.
+\end{itemize}
+
+\subsection{Risks and Mitigation}
+\begin{itemize}
+    \item \textbf{LLM API costs:} Mitigated by caching embeddings and summaries; using cheaper models during development.
+    \item \textbf{Hierarchical summarization quality:} Iterative prompt refinement with manual validation on 3--5 repos.
+    \item \textbf{Evaluation variance:} Running LLM-as-a-judge 3--5 times per evaluation and reporting mean $\pm$ std.
+    \item \textbf{CoReQA data access:} Dataset is publicly available; repo cloning may face rate limits (mitigated by pre-cloning).
+\end{itemize}
+
+% ============================================================
+% REFERENCES
+% ============================================================
+\begin{thebibliography}{20}
+\small
+
+\bibitem[Austin et~al.(2021)]{austin2021program}
+Austin, J., Odena, A., Nye, M., Bosma, M., Michalewski, H., Dohan, D., Jiang, E., Cai, C., Terry, M., Le, Q., \& Sutskever, I. (2021).
+\newblock Program synthesis with large language models.
+\newblock \textit{arXiv preprint arXiv:2108.07732}.
+
+\bibitem[Bairi et~al.(2024)]{bairi2024codeplan}
+Bairi, R., Sonwane, A., Kanade, A., Iyer, A., Parthasarathy, S., Rajamani, S., Ashok, B., \& Shet, S. (2024).
+\newblock CodePlan: Repository-level coding using LLMs and planning.
+\newblock In \textit{Proc.\ of the ACM on Software Engineering (FSE)}, 675--698.
+
+\bibitem[CAST(2025)]{cast2025}
+CAST: Enhancing code retrieval-augmented generation with structural chunking via abstract syntax tree. (2025).
+\newblock In \textit{Findings of EMNLP 2025}. Association for Computational Linguistics.
+
+\bibitem[Chen et~al.(2021)]{chen2021evaluating}
+Chen, M., Tworek, J., Jun, H., Yuan, Q., Pinto, H.~P.~d.~O., Kaplan, J., Edwards, H., Burda, Y., Joseph, N., Brockman, G., et~al. (2021).
+\newblock Evaluating large language models trained on code.
+\newblock \textit{arXiv preprint arXiv:2107.03374}.
+
+\bibitem[Chen et~al.(2025)]{chen2025coreqa}
+Chen, J., Zhao, K., Liu, J., Peng, C., Liu, J., Zhu, H., Gao, P., Yang, P., \& Deng, S. (2025).
+\newblock CoReQA: Uncovering potentials of language models in code repository question answering.
+\newblock \textit{arXiv preprint arXiv:2501.03447}.
+
+\bibitem[Cheng et~al.(2024)]{cheng2024draco}
+Cheng, W., Wu, Y., \& Hu, W. (2024).
+\newblock Dataflow-guided retrieval augmentation for repository-level code completion.
+\newblock In \textit{Proc.\ of ACL 2024}, 7957--7977.
+
+\bibitem[CodeRepoQA(2024)]{coderepoqa2024}
+CodeRepoQA: A large-scale benchmark for software engineering question answering. (2024).
+\newblock \textit{arXiv preprint arXiv:2412.14764}.
+
+\bibitem[Gao et~al.(2024)]{gao2024rag}
+Gao, Y., Xiong, Y., Gao, X., Jia, K., Pan, J., Bi, Y., Dai, Y., Sun, J., Wang, H., \& Wang, H. (2024).
+\newblock Retrieval-augmented generation for large language models: A survey.
+\newblock \textit{arXiv preprint arXiv:2312.10997}.
+
+\bibitem[Gistify(2025)]{gistify2025}
+Gistify! Codebase-level understanding. (2025).
+\newblock \textit{OpenReview preprint}.
+
+\bibitem[Jimenez et~al.(2024)]{jimenez2024swebench}
+Jimenez, C.~E., Yang, J., Wettig, A., Yao, S., Pei, K., Press, O., \& Narasimhan, K.~R. (2024).
+\newblock SWE-bench: Can language models resolve real-world GitHub issues?
+\newblock In \textit{Proc.\ of ICLR 2024}.
+
+\bibitem[Lee et~al.(2022)]{lee2022cs1qa}
+Lee, C., Seonwoo, Y., \& Oh, A. (2022).
+\newblock CS1QA: A dataset for assisting code-based question answering in introductory programming course.
+\newblock \textit{arXiv preprint arXiv:2210.14494}.
+
+\bibitem[Liu \& Wan(2021)]{liu2021codeqa}
+Liu, C., \& Wan, X. (2021).
+\newblock CodeQA: A question answering dataset for source code comprehension.
+\newblock In \textit{Findings of EMNLP 2021}, 2618--2632.
+
+\bibitem[Peng et~al.(2025)]{peng2025sweqa}
+Peng, Y., et~al. (2025).
+\newblock SWE-QA: Can language models answer repository-level code questions?
+\newblock \textit{arXiv preprint arXiv:2509.14635}.
+
+\bibitem[Strich et~al.(2024)]{strich2024improving}
+Strich, J., Schneider, F., Nikishina, I., \& Biemann, C. (2024).
+\newblock On improving repository-level code QA for large language models.
+\newblock In \textit{Proc.\ of ACL 2024 Student Research Workshop}, 209--244.
+
+\bibitem[Tufek et~al.(2025)]{tufek2025hierarchical}
+Tufek, A., et~al. (2025).
+\newblock Repository-level code understanding by LLMs via hierarchical summarization.
+\newblock In \textit{ICCSA 2025}. Springer.
+
+\bibitem[Wang et~al.(2025)]{wang2025coderag}
+Wang, Z.~Z., Asai, A., Yu, X.~V., Xu, F.~F., Xie, Y., Neubig, G., \& Fried, D. (2025).
+\newblock CodeRAG-Bench: Can retrieval augment code generation?
+\newblock In \textit{Findings of NAACL 2025}, 3199--3214.
+
+\bibitem[Xia et~al.(2018)]{xia2018measuring}
+Xia, X., Bao, L., Lo, D., Xing, Z., Hassan, A.~E., \& Li, S. (2018).
+\newblock Measuring program comprehension: A large-scale field study with professionals.
+\newblock \textit{IEEE TSE}, 44(10), 951--976.
+
+\bibitem[Zhang et~al.(2023)]{zhang2023repocoder}
+Zhang, F., Chen, B., Zhang, Y., Keung, J., Liu, J., Zan, D., Mao, Y., Lou, J.-G., \& Chen, W. (2023).
+\newblock RepoCoder: Repository-level code completion through iterative retrieval and generation.
+\newblock In \textit{Proc.\ of EMNLP 2023}, 2471--2484.
+
+\end{thebibliography}
+
+\end{document}
