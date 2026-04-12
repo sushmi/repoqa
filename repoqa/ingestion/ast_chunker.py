@@ -2,6 +2,8 @@
 
 Each chunk corresponds to a complete syntactic unit (function, class, module-level
 code) rather than an arbitrary character window.
+
+Tree-sitter online documenation - https://tree-sitter.github.io/
 """
 
 from __future__ import annotations
