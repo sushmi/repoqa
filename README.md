@@ -5,11 +5,14 @@ Repository-level question answering over source code. RepoQA ingests a codebase,
 ## Steps followed:
 
 ### 1. Flask codebase taken as 1 repo to evaluate
+
 ```
 git clone git@github.com:pallets/flask.git
 ```
+
 ### 2. Check Lines of code of flask codebase
-Total lines of code = <strong>~19K </strong>
+
+Total lines of code = **~19K**
 
 ```sh
 # cloc comand to read line of code under flask and list ignored files in ignore_cloc.txt
@@ -46,6 +49,7 @@ SUM:                           219           8259           6935          19362
 ```
 
 Ignored files list
+
 ```sh
 $ cat ignore_cloc.txt 
 flask:  --exclude-dir=1
@@ -64,18 +68,19 @@ flask/tests/test_apps/.flaskenv:  language unknown (#3)
 flask/uv.lock:  language unknown (#3)
 ```
 
-### Exclude noise 
+### Exclude noise
+
 When traversing the repo, skip generated artifacts and non-source/binary content before parsing/chunking
 
 - Skip entire directories early: prune known "arftifacts" dirs so the crawler never reads files eg. `.git`, `node_modules`, `__pychache__`, `build`, etc.
 - Filter by language/extension: Keep only files whose extension or name maps to supported language (source and key non-code like README and config). Unkown extension are dropped.
 - Drop binary files: read a small prefix (e.g., first ~8KB) and skip if it looks binary (null bytes). Refer [Why binary files are checked separately](NOTES.md)
-- Optional size/fixture controls (paper mentions): the paper suggests excluding oversized fixtures (e.g., “test fixtures exceeding 1000 lines”)—if you want that behavior, it should be implemented as an additional filter (line-count or byte-size threshold) in the crawler step. 
+- Optional size/fixture controls (paper mentions): the paper suggests excluding oversized fixtures (e.g., “test fixtures exceeding 1000 lines”)—if you want that behavior, it should be implemented as an additional filter (line-count or byte-size threshold) in the crawler step.
 
 ## Architecture
 
 ```
-repo_crawler -> ast_chunker/noncode_indexer -> file_summarizer -> dir_summarizer -> project_summarizer -> embedder -> chroma_store
+repo_crawler -> ast_chunker/noncode_chunker -> file_summarizer -> dir_summarizer -> project_summarizer -> embedder -> chroma_store
      |                  |                              |                                                      |
   Phase 1: Ingestion    |                    Phase 2: Summarization                                  Phase 3: Embedding
                         |
@@ -84,7 +89,7 @@ repo_crawler -> ast_chunker/noncode_indexer -> file_summarizer -> dir_summarizer
 
 Three-phase pipeline:
 
-1. **Ingestion** -- clone/crawl repo, parse ASTs (tree-sitter), chunk code into semantic units (functions, classes, modules), index non-code files (markdown, config, dockerfiles)
+1. **Ingestion** -- clone/crawl repo, parse ASTs (tree-sitter), chunk code into semantic units (functions, classes, modules), chunk non-code files (markdown, config, dockerfiles)
 2. **Summarization** -- bottom-up LLM summarization: file -> directory -> project level
 3. **Embedding** -- embed chunks + summaries with OpenAI embeddings, store in ChromaDB
 
@@ -97,7 +102,7 @@ repoqa/
     repo_crawler.py          # Clone & walk repository files
     ast_parser.py            # tree-sitter AST parsing (8 languages)
     ast_chunker.py           # Split code into semantic chunks (function/class/module)
-    noncode_indexer.py       # Index markdown, config, dockerfiles, etc.
+    noncode_chunker.py       # Chunk markdown, config, dockerfiles, etc.
     pipeline.py              # IngestionPipeline orchestrator
   summarization/
     file_summarizer.py       # Summarize individual files from their chunks
@@ -138,15 +143,19 @@ docs/
 ## Core Data Models
 
 **FileRecord** -- a file discovered during crawling
+
 - `repo_path`, `abs_path`, `language`, `size_bytes`, `raw_content`
 
 **Chunk** -- a semantically bounded piece of content ready for embedding
+
 - `id` (sha256 of `repo_path:start_line`), `content`, `chunk_type` (function|class|module|prose|config), `symbol_name`, `start_line`, `end_line`, `token_count`, `language`
 
 **Summary** -- an LLM-generated summary at file/directory/project level
+
 - `id` (sha256 of `summary:level:path`), `level`, `path`, `content`, `source_ids`, `token_count`
 
 **QAPair** -- evaluation dataset entry
+
 - `id` (sha256 of `repo_name:issue_number`), `repo_name`, `question`, `answer`, `question_type` (architecture|logic|deployment), `issue_url`, `answer_score`, `reference_contexts`
 
 **EvaluationDataset** -- collection of QAPairs with `save()`, `load()`, `summary()` methods
@@ -161,18 +170,20 @@ All settings are in `config/settings.py` (pydantic-settings), loaded from `.env`
 
 Variables are listed under `.env.example`. Rename it to `.env` to exclude it during git commit. Update keys and token accordingly in `.env` file.
 
-| Variable | Default | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | -- | OpenAI API key |
-| `ANTHROPIC_API_KEY` | -- | Anthropic API key |
-| `LLM_PROVIDER` | `openai` | `openai` or `anthropic` |
-| `CHAT_MODEL` | `gpt-4o-mini` | LLM for summarization |
-| `EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
-| `CHROMA_PERSIST_DIR` | `./data/chroma` | ChromaDB storage path |
-| `CHUNK_MAX_TOKENS` | `512` | Max tokens per chunk |
-| `CHUNK_OVERLAP_TOKENS` | `64` | Overlap between adjacent chunks |
-| `SUMMARY_MAX_TOKENS` | `4096` | Max tokens for summarization prompts |
-| `GITHUB_TOKEN` | -- | GitHub PAT for dataset mining |
+
+| Variable               | Default                  | Description                          |
+| ---------------------- | ------------------------ | ------------------------------------ |
+| `OPENAI_API_KEY`       | --                       | OpenAI API key                       |
+| `ANTHROPIC_API_KEY`    | --                       | Anthropic API key                    |
+| `LLM_PROVIDER`         | `openai`                 | `openai` or `anthropic`              |
+| `CHAT_MODEL`           | `gpt-4o-mini`            | LLM for summarization                |
+| `EMBEDDING_MODEL`      | `text-embedding-3-small` | Embedding model                      |
+| `CHROMA_PERSIST_DIR`   | `./data/chroma`          | ChromaDB storage path                |
+| `CHUNK_MAX_TOKENS`     | `512`                    | Max tokens per chunk                 |
+| `CHUNK_OVERLAP_TOKENS` | `64`                     | Overlap between adjacent chunks      |
+| `SUMMARY_MAX_TOKENS`   | `4096`                   | Max tokens for summarization prompts |
+| `GITHUB_TOKEN`         | --                       | GitHub PAT for dataset mining        |
+
 
 ## Quick Start
 
@@ -201,3 +212,4 @@ python scripts/build_dataset.py --output data/evaluation/dataset.json
 - Python >= 3.11
 - See `pyproject.toml` for full dependency list
 - Key deps: tree-sitter, chromadb, langchain, openai/anthropic, tiktoken, pydantic-settings, gitpython
+

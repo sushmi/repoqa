@@ -6,7 +6,7 @@ import pytest
 from repoqa.models import Chunk, FileRecord
 from repoqa.ingestion.repo_crawler import classify_file, crawl_repo
 from repoqa.ingestion.ast_chunker import ASTChunker
-from repoqa.ingestion.noncode_indexer import NonCodeIndexer
+from repoqa.ingestion.noncode_chunker import NonCodeChunker
 from pathlib import Path
 
 
@@ -101,29 +101,29 @@ def test_chunk_id_is_deterministic():
 
 
 # ---------------------------------------------------------------------------
-# NonCodeIndexer tests
+# NonCodeChunker tests
 # ---------------------------------------------------------------------------
 
 def test_noncode_markdown_splits_on_headings():
     content = "# Section 1\nSome text\n## Subsection\nMore text\n# Section 2\nEnd\n"
     fr = make_file_record("README.md", "markdown", content)
-    indexer = NonCodeIndexer(max_tokens=100)
-    chunks = indexer.index_file(fr)
+    chunker = NonCodeChunker(max_tokens=100)
+    chunks = chunker.chunk_file(fr)
     assert len(chunks) >= 2
     assert all(c.chunk_type == "prose" for c in chunks)
 
 def test_noncode_json_single_chunk():
     content = '{"name": "my-app", "version": "1.0.0"}'
     fr = make_file_record("package.json", "json", content)
-    indexer = NonCodeIndexer(max_tokens=200)
-    chunks = indexer.index_file(fr)
+    chunker = NonCodeChunker(max_tokens=200)
+    chunks = chunker.chunk_file(fr)
     assert len(chunks) >= 1
     assert chunks[0].chunk_type == "config"
 
 def test_noncode_dockerfile():
     content = "FROM python:3.11\nWORKDIR /app\nCOPY . .\nRUN pip install -r requirements.txt\nCMD [\"python\", \"main.py\"]\n"
     fr = make_file_record("Dockerfile", "dockerfile", content)
-    indexer = NonCodeIndexer(max_tokens=100)
-    chunks = indexer.index_file(fr)
+    chunker = NonCodeChunker(max_tokens=100)
+    chunks = chunker.chunk_file(fr)
     assert len(chunks) >= 1
     assert all(c.chunk_type == "config" for c in chunks)

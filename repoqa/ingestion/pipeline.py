@@ -1,6 +1,6 @@
 """Ingestion pipeline orchestrator.
 
-Ties together repo_crawler → (ast_chunker | noncode_indexer) → list[Chunk].
+Ties together repo_crawler → (ast_chunker | noncode_chunker) → list[Chunk].
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from config.settings import Settings, get_settings
 from repoqa.models import Chunk, FileRecord
 from repoqa.ingestion.repo_crawler import crawl_repo
 from repoqa.ingestion.ast_chunker import ASTChunker
-from repoqa.ingestion.noncode_indexer import NonCodeIndexer
+from repoqa.ingestion.noncode_chunker import NonCodeChunker
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -36,25 +36,29 @@ class IngestionPipeline:
             max_tokens=self.settings.chunk_max_tokens,
             overlap_tokens=self.settings.chunk_overlap_tokens,
         )
-        self._noncode_indexer = NonCodeIndexer(
+        self._noncode_chunker = NonCodeChunker(
             max_tokens=self.settings.chunk_max_tokens,
             overlap_tokens=self.settings.chunk_overlap_tokens,
         )
 
     def run(self, repo_root: str) -> list[Chunk]:
         """Crawl *repo_root* and return all chunks."""
-        console.print(f"[bold cyan]Ingesting repository:[/bold cyan] {repo_root}")
+        console.print(f"[bold cyan]Ingesting repository with skip rules:[/bold cyan] {repo_root}")
 
+        """Step 1: Crawl the repository and get the list of files"""
         records = crawl_repo(repo_root)
         console.print(f"  Found [green]{len(records)}[/green] files")
 
+        """Step 2: Chunk the files"""
         all_chunks: list[Chunk] = []
         for record in tqdm(records, desc="Chunking files", unit="file"):
             try:
+                """Step 2.1: Chunk the files with the AST chunker if the language is supported"""
                 if record.language in _CODE_LANGUAGES:
                     chunks = self._ast_chunker.chunk_file(record)
                 else:
-                    chunks = self._noncode_indexer.index_file(record)
+                    """Step 2.2: Chunk the files with the noncode chunker if the language is not supported"""
+                    chunks = self._noncode_chunker.chunk_file(record)
                 all_chunks.extend(chunks)
             except Exception as exc:
                 logger.warning("Failed to chunk %s: %s", record.repo_path, exc)

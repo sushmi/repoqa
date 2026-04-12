@@ -41,6 +41,7 @@ dependencies = [
   "tqdm>=4.66.0",
   "rich>=13.7.0",
   "tenacity>=8.2.0",
+  "pytest>=9.0.3",
 ]
 
 [project.optional-dependencies]
@@ -74,4 +75,10 @@ exclude = [
   "preps*",
   "scripts*",
   "tests*",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
 ]

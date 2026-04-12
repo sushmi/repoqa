@@ -22,7 +22,7 @@ def _count_tokens(text: str) -> int:
     return len(_ENCODER.encode(text))
 
 
-class NonCodeIndexer:
+class NonCodeChunker:
     """Splits non-code files into Chunk objects.
 
     Strategies are dispatch by file language:
@@ -37,27 +37,27 @@ class NonCodeIndexer:
         self.max_tokens = max_tokens
         self.overlap_tokens = overlap_tokens
 
-    def index_file(self, file_record: FileRecord) -> list[Chunk]:
+    def chunk_file(self, file_record: FileRecord) -> list[Chunk]:
         lang = file_record.language
         dispatch = {
-            "markdown": self._index_markdown,
-            "json": self._index_json,
-            "yaml": self._index_yaml,
-            "toml": self._index_toml,
-            "dockerfile": self._index_text_as_config,
+            "markdown": self._chunk_markdown,
+            "json": self._chunk_json,
+            "yaml": self._chunk_yaml,
+            "toml": self._chunk_toml,
+            "dockerfile": self._chunk_text_as_config,
         }
-        handler = dispatch.get(lang, self._index_text)
+        handler = dispatch.get(lang, self._chunk_text)
         try:
             return handler(file_record)
         except Exception as exc:
-            logger.warning("NonCodeIndexer failed on %s: %s — falling back to text split", file_record.repo_path, exc)
-            return self._index_text(file_record)
+            logger.warning("NonCodeChunker failed on %s: %s — falling back to text split", file_record.repo_path, exc)
+            return self._chunk_text(file_record)
 
     # ------------------------------------------------------------------
     # Markdown — split on heading lines
     # ------------------------------------------------------------------
 
-    def _index_markdown(self, file_record: FileRecord) -> list[Chunk]:
+    def _chunk_markdown(self, file_record: FileRecord) -> list[Chunk]:
         lines = file_record.raw_content.splitlines()
         sections: list[tuple[int, list[str]]] = []  # (start_line_1indexed, lines)
         current_lines: list[str] = []
@@ -81,16 +81,16 @@ class NonCodeIndexer:
             # If a section is too long, further split it
             sub = self._window_lines(sec_lines, start_line, file_record, "prose")
             chunks.extend(sub)
-        return chunks if chunks else self._index_text(file_record)
+        return chunks if chunks else self._chunk_text(file_record)
 
     # ------------------------------------------------------------------
     # JSON — one chunk per top-level key
     # ------------------------------------------------------------------
 
-    def _index_json(self, file_record: FileRecord) -> list[Chunk]:
+    def _chunk_json(self, file_record: FileRecord) -> list[Chunk]:
         data = json.loads(file_record.raw_content)
         if not isinstance(data, dict):
-            return self._index_text(file_record)
+            return self._chunk_text(file_record)
 
         whole = json.dumps(data, indent=2)
         if _count_tokens(whole) <= self.max_tokens:
@@ -111,10 +111,10 @@ class NonCodeIndexer:
     # YAML
     # ------------------------------------------------------------------
 
-    def _index_yaml(self, file_record: FileRecord) -> list[Chunk]:
+    def _chunk_yaml(self, file_record: FileRecord) -> list[Chunk]:
         data = yaml.safe_load(file_record.raw_content)
         if not isinstance(data, dict):
-            return self._index_text(file_record)
+            return self._chunk_text(file_record)
 
         whole = yaml.dump(data, default_flow_style=False)
         if _count_tokens(whole) <= self.max_tokens:
@@ -134,10 +134,10 @@ class NonCodeIndexer:
     # TOML
     # ------------------------------------------------------------------
 
-    def _index_toml(self, file_record: FileRecord) -> list[Chunk]:
+    def _chunk_toml(self, file_record: FileRecord) -> list[Chunk]:
         data = tomllib.loads(file_record.raw_content)
         if not isinstance(data, dict):
-            return self._index_text(file_record)
+            return self._chunk_text(file_record)
 
         whole = file_record.raw_content
         if _count_tokens(whole) <= self.max_tokens:
@@ -158,10 +158,10 @@ class NonCodeIndexer:
     # Dockerfile and plain text
     # ------------------------------------------------------------------
 
-    def _index_text_as_config(self, file_record: FileRecord) -> list[Chunk]:
-        return self._index_text(file_record, chunk_type="config")
+    def _chunk_text_as_config(self, file_record: FileRecord) -> list[Chunk]:
+        return self._chunk_text(file_record, chunk_type="config")
 
-    def _index_text(self, file_record: FileRecord, chunk_type: str = "prose") -> list[Chunk]:
+    def _chunk_text(self, file_record: FileRecord, chunk_type: str = "prose") -> list[Chunk]:
         lines = file_record.raw_content.splitlines()
         return self._window_lines(lines, 1, file_record, chunk_type)
 

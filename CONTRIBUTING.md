@@ -14,7 +14,7 @@ This document is the contributor guide and development log for RepoQA. It explai
   - [Repo Crawler](#41-repo-crawler)
   - [AST Parser Registry](#42-ast-parser-registry)
   - [AST-Aware Chunker](#43-ast-aware-chunker)
-  - [Non-Code Indexer](#44-non-code-indexer)
+  - [Non-Code Chunker](#44-non-code-chunker)
   - [Ingestion Pipeline Orchestrator](#45-ingestion-pipeline-orchestrator)
 5. [Phase 2 — Hierarchical Summarization](#5-phase-2--hierarchical-summarization)
   - [Prompt Templates](#51-prompt-templates)
@@ -173,9 +173,9 @@ repoqa/
 
 ---
 
-### 4.4 Non-Code Indexer
+### 4.4 Non-Code Chunker
 
-**File:** `repoqa/ingestion/noncode_indexer.py`
+**File:** `repoqa/ingestion/noncode_chunker.py`
 
 **Why:** Architecture and deployment questions ("How is this service configured?", "How do I build this project?") require context from README files, Dockerfiles, CI configs, and `package.json` — not from source code. These files need their own chunking strategies because they are not valid ASTs.
 
@@ -200,12 +200,12 @@ All strategies fall back to the text splitter if parsing fails.
 
 **File:** `repoqa/ingestion/pipeline.py`
 
-**Why:** The crawler, AST chunker, and non-code indexer need to be wired together with progress reporting, error isolation (one bad file should not abort the entire run), and JSON serialization for caching.
+**Why:** The crawler, AST chunker, and non-code chunker need to be wired together with progress reporting, error isolation (one bad file should not abort the entire run), and JSON serialization for caching.
 
 **What it does:**
 
 - Calls `crawl_repo` to get all `FileRecord` objects.
-- Dispatches each record to the appropriate chunker based on `language` (code languages → `ASTChunker`, others → `NonCodeIndexer`).
+- Dispatches each record to the appropriate chunker based on `language` (code languages → `ASTChunker`, others → `NonCodeChunker`).
 - Wraps each file in a `try/except` so a single malformed file is logged and skipped rather than crashing the pipeline.
 - Shows a `tqdm` progress bar and a `rich` summary table after completion.
 - `run_and_save` serializes the full chunk list to JSON via `dataclasses.asdict`, enabling later pipeline stages to resume without re-running ingestion.
@@ -393,7 +393,7 @@ python scripts/build_index.py --chunks data/chunks.json --summaries data/summari
 
 **File:** `tests/test_ingestion.py`
 
-**Why tests written immediately after Phase 1:** The ingestion pipeline (crawler, chunker, indexer) is pure logic — no API calls required. Writing tests at this point validates correctness before any money is spent on LLM or embedding calls.
+**Why tests written immediately after Phase 1:** The ingestion pipeline (crawler, chunker) is pure logic — no API calls required. Writing tests at this point validates correctness before any money is spent on LLM or embedding calls.
 
 **10 tests covering:**
 
@@ -416,6 +416,14 @@ python scripts/build_index.py --chunks data/chunks.json --summaries data/summari
 
 ```bash
 uv run pytest tests/ -v
+```
+
+** Run test with coverage:**
+
+```bash
+# install pytest coverage first - if not installed. uv sync should already add pytest-cov
+# uv add --dev pytest pytest-cov
+
 ```
 
 ---

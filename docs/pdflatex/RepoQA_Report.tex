@@ -144,7 +144,7 @@ Figure~\ref{fig:architecture} presents the overall architecture of RepoQA, which
 \node[graybox]              (repo)    {GitHub repo};
 \node[bluebox, right=of repo]   (clone)   {Clone \& filter\\{\sub Exclude noise}};
 \node[bluebox, right=of clone]  (tree)    {Tree-sitter parser\\{\sub AST-aware chunks}};
-\node[greenbox, right=of tree]  (noncode) {Non-code indexer\\{\sub README, Docker, CI}};
+\node[greenbox, right=of tree]  (noncode) {Non-code chunker\\{\sub README, Docker, CI}};
 % Row 2 — each node directly below its row-1 counterpart
 \node[purplebox, below=of repo]    (summarizer) {Hierarchical summarizer\\{\sub Project $\to$ dir $\to$ file}};
 \node[bluebox,   below=of clone]   (embedding)  {Embedding model\\{\sub all-mpnet-base-v2}};

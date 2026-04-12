@@ -115,6 +115,7 @@ class ASTParserRegistry:
             except Exception as exc:
                 logger.warning("Failed to init tree-sitter parser for %s: %s", lang, exc)
 
+    """check if the language is supported and initialize the parsers for the languages"""
     def supports(self, language: str) -> bool:
         return language in self._parsers
 
@@ -124,14 +125,14 @@ class ASTParserRegistry:
             return None
         parser = self._parsers[language]
         try:
-            return parser.parse(source.encode("utf-8"))
+            return parser.parse(source.encode("utf-8")) # return the tree-sitter Tree
         except Exception as exc:
             logger.debug("Parse error for language=%s: %s", language, exc)
             return None
 
     @staticmethod
     def get_node_text(node, source_bytes: bytes) -> str:
-        return source_bytes[node.start_byte: node.end_byte].decode("utf-8", errors="replace")
+        return source_bytes[node.start_byte: node.end_byte].decode("utf-8", errors="replace") # return the text of the node
 
     @property
     def supported_languages(self) -> list[str]:
