@@ -1,0 +1,21 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+data/
+*.egg-info/
+dist/
+build/
+.DS_Store
+
+# Ignore flask codebase
+flask/
+
+
+# AI discussions
+.claude/
+preps/
+

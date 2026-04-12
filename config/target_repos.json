@@ -1,0 +1,20 @@
+[
+    "pallets/flask",
+    "tiangolo/fastapi",
+    "encode/httpx",
+    "Textualize/rich",
+    "pydantic/pydantic",
+    "psf/requests",
+    "spring-projects/spring-boot",
+    "google/guava",
+    "square/retrofit",
+    "gin-gonic/gin",
+    "spf13/cobra",
+    "gofiber/fiber",
+    "nestjs/nest",
+    "vercel/next.js",
+    "prisma/prisma",
+    "microsoft/TypeScript",
+    "denoland/deno",
+    "stretchr/testify"
+]

@@ -1,8 +1,9 @@
-\documentclass[stu,11pt]{article}
-\usepackage{acl}
+\documentclass[11pt]{article}
+\usepackage{acl_style}
 \usepackage{enumitem}
 \usepackage{float}
 \usepackage{caption}
+\usepackage{subcaption}
 \usepackage{tabularx}
 \usepackage{array}
 \usepackage{multirow}
@@ -11,6 +12,8 @@
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit}
 % --- CUSTOM COMMANDS & COLORS ---
 \newcommand{\subtitle}[1]{{\scriptsize #1}} % FIXED: Defined missing subtitle command
+\newcommand{\sub}[1]{{\footnotesize #1}} % Defines \sub as small text
+
 
 % Define custom colors (can be placed here or inside the document)
 \definecolor{boxblue}{RGB}{235, 245, 255}
@@ -58,7 +61,7 @@ Developers spend the majority of their time reading and understanding code, yet 
 Software development is fundamentally a comprehensive activity. Studies consistently report that developers spend 58--70\% of their time reading and understanding existing code rather than writing new code \citep{xia2018measuring}. When onboarding to an unfamiliar repository, developers face a barrage of questions: \textit{How is this project structured? What does this function do? Why was this design pattern chosen? How do I deploy this service locally?} These questions span multiple levels of abstraction---from high-level architecture down to individual function logic---and frequently require tracing dependencies across multiple files.
 
 % Part 2: Gap in existing work
-Despite rapid advances in AI-powered coding tools, the current landscape exhibits a fundamental mismatch. Tools such as GitHub Copilot \citep{chen2021evaluating}, Cursor, and Claude Code excel at code completion and generation but are not designed for code understanding and explanation. On the research side, most benchmarks target code generation \citep{chen2021evaluating, austin2021program} or bug fixing \citep{jimenez2024swebench}, with limited attention to question answering. Recent work by \citet{chen2025coreqa} demonstrates this gap starkly: even GPT-4o with BM25 retrieval scores only 6.91/10 on accuracy for repository-level QA, and completeness scores languish at 6.34/10. The authors attribute this to BM25's inability to capture semantic relationships in code, where terms exhibit minimal variation and keyword matching misses crucial context.
+Despite rapid advances in AI-powered coding tools, the current landscape exhibits a fundamental mismatch. Tools such as GitHub Copilot \citep{chen2021evaluating}, Cursor excel at code completion and generation but are not designed for code understanding and explanation. On the research side, most benchmarks target code generation \citep{chen2021evaluating, austin2021program} or bug fixing \citep{jimenez2024swebench}, with limited attention to question answering. Recent work by \citet{chen2025coreqa} demonstrates this gap starkly: even GPT-4o with BM25 retrieval scores only 6.91/10 on accuracy for repository-level QA, and completeness scores languish at 6.34/10. The authors attribute this to BM25's inability to capture semantic relationships in code, where terms exhibit minimal variation and keyword matching misses crucial context.
 
 % Part 3: The approach
 To address this gap, the \textbf{RepoQA}, a retrieval-augmented question answering system designed specifically for repository-level code comprehension. RepoQA introduces three innovations. First, develop a \textit{hierarchical summarization pipeline} that generates project-, directory-, and file-level summaries, enabling the system to answer questions at multiple levels of abstraction (following \citealp{tufek2025hierarchical}). Second, design a \textit{hybrid retrieval engine} that fuses semantic search, BM25, and dependency-graph traversal, with a question-type router that selects the appropriate retrieval strategy based on whether the question targets architecture, logic, or deployment. Third, employ \textit{structured explanation prompts} that organize context top-down (project summary $\rightarrow$ directory summary $\rightarrow$ code chunks) and require the LLM to cite specific files and line numbers, directly optimizing for the accuracy and completeness dimensions identified as challenging by \citet{chen2025coreqa}.
@@ -115,101 +118,142 @@ RAG has become the dominant paradigm for augmenting LLMs with external knowledge
 
 Figure~\ref{fig:architecture} presents the overall architecture of RepoQA, which consists of four main components: (1)~repository ingestion and hierarchical summarization, (2)~hybrid retrieval with question-type routing, (3)~structured prompt generation, and (4)~answer generation with grounding verification.
 
-\begin{figure*}[t]
+\begin{figure*}[ht]
 \centering
 \resizebox{\textwidth}{!}{
 \begin{tikzpicture}[
     font=\sffamily\small,
-    node distance=0.8cm and 0.6cm,
-    base/.style={rectangle, rounded corners=3pt, draw, align=center, minimum height=1.1cm, minimum width=2.4cm, line width=0.8pt},
-    subtitle/.style={font=\sffamily\scriptsize, inner sep=2pt},
-    % Styles using your preamble colors
+    node distance=0.8cm and 0.8cm,
+    base/.style={rectangle, rounded corners=3pt, draw, align=center,
+                 minimum height=1cm, minimum width=2.4cm, line width=0.8pt},
+    sub/.style={font=\sffamily\scriptsize},
     graybox/.style={base, fill=boxgray, draw=bordergray},
     bluebox/.style={base, fill=boxblue, draw=borderblue},
     greenbox/.style={base, fill=boxgreen, draw=bordergreen},
     purplebox/.style={base, fill=boxpurple, draw=borderpurple},
     orangebox/.style={base, fill=boxorange, draw=borderorange},
-    % Arrows
-    arrow/.style={-{Stealth[scale=1.2]}, draw=gray!80, line width=0.8pt},
-    dashedarrow/.style={arrow, dashed},
-    % Stages
-    stage/.style={draw, dashed, inner sep=12pt, rounded corners=5pt, line width=0.6pt}
+    arr/.style={-{Stealth[scale=1]}, draw=gray!70, line width=0.7pt},
+    darr/.style={arr, dashed},
+    stage/.style={draw, dashed, inner sep=10pt, rounded corners=5pt, line width=0.6pt}
 ]
 
-% --- STAGE 1: INDEXING ---
-\node[graybox] (repo) {GitHub repo};
-\node[bluebox, right=of repo] (clone) {Clone \& filter \\ \subtitle{Exclude noise}};
-\node[bluebox, right=of clone] (tree) {Tree-sitter parser \\ \subtitle{AST-aware chunks}};
-\node[greenbox, right=of tree] (noncode) {Non-code indexer \\ \subtitle{README, Docker, CI}};
+% ================================================================
+%  STAGE 1 — Repository indexing
+% ================================================================
+% Row 1
+\node[graybox]              (repo)    {GitHub repo};
+\node[bluebox, right=of repo]   (clone)   {Clone \& filter\\{\sub Exclude noise}};
+\node[bluebox, right=of clone]  (tree)    {Tree-sitter parser\\{\sub AST-aware chunks}};
+\node[greenbox, right=of tree]  (noncode) {Non-code indexer\\{\sub README, Docker, CI}};
+% Row 2 — each node directly below its row-1 counterpart
+\node[purplebox, below=of repo]    (summarizer) {Hierarchical summarizer\\{\sub Project $\to$ dir $\to$ file}};
+\node[bluebox,   below=of clone]   (embedding)  {Embedding model\\{\sub all-mpnet-base-v2}};
+\node[greenbox,  below=of tree]    (chroma)     {ChromaDB + BM25\\{\sub Dual index store}};
+\node[greenbox,  below=of noncode] (depgraph)   {Dependency graph\\{\sub Import relationships}};
+% Stage box (spacer gives room for the label)
+\coordinate[above=0.9cm of repo.north] (s1top);
+\coordinate (s1tr) at (s1top -| depgraph.east);
+\node[stage, borderblue, fit=(s1top)(s1tr)(summarizer)(depgraph)] (stage1) {};
+\node[text=borderblue, font=\sffamily\bfseries\footnotesize, anchor=north west]
+    at ([xshift=6pt, yshift=-5pt]stage1.north west)
+    {Stage 1: Repository indexing (offline, once per repo)};
 
-\node[purplebox, below=0.8cm of clone] (summarizer) {Hierarchical summarizer \\ \subtitle{Project $\to$ directory $\to$ file}};
-\node[bluebox, right=of summarizer] (embedding) {Embedding model \\ \subtitle{all-mpnet-base-v2}};
-\node[greenbox, right=of embedding] (chroma) {ChromaDB + BM25 \\ \subtitle{Dual index store}};
-\node[greenbox, below=0.5cm of chroma] (depgraph) {Dependency graph \\ \subtitle{Import relationships}};
+% ================================================================
+%  STAGE 2 — Hybrid retrieval
+% ================================================================
+% Row 1 — left-aligned with stage 1
+\path (stage1.south -| repo) coordinate (s2ref);
+\node[graybox, below=2cm of s2ref]     (q)      {Developer\\question};
+\node[purplebox, right=of q]           (class)  {Question classifier\\{\sub Arch / logic / deploy}};
+\node[purplebox, right=of class]       (router) {Strategy router\\{\sub Selects retrieval path}};
+% Row 2 — each retrieval method directly below its row-1 counterpart
+\node[bluebox,   below=of q]      (semantic)   {Semantic search\\{\sub Cosine similarity, top-15}};
+\node[greenbox,  below=of class]  (bm25)       {BM25 keyword search\\{\sub Exact identifier match}};
+\node[orangebox, below=of router] (structural) {Structural search\\{\sub Dep.\ graph traversal}};
+% Row 3 — RRF centred under the three methods
+\node[purplebox, below=of bm25]   (rrf) {Reciprocal rank fusion (RRF)\\{\sub Merge + re-rank results}};
+% Stage box
+\coordinate[above=0.9cm of q.north] (s2top);
+\coordinate (s2tr) at (s2top -| depgraph.east);   % same right edge as stage 1
+\node[stage, borderpurple, fit=(s2top)(s2tr)(semantic)(rrf)] (stage2) {};
+\node[text=borderpurple, font=\sffamily\bfseries\footnotesize, anchor=north west]
+    at ([xshift=6pt, yshift=-5pt]stage2.north west)
+    {Stage 2: Hybrid retrieval with question-type routing};
 
-% The "Fit" node with internal label
-\node[stage, borderblue, fit=(repo) (noncode) (depgraph), 
-    label={[anchor=north west, text=borderblue, font=\bfseries, xshift=10pt, yshift=-2pt]north west:Stage 1: Repository indexing (offline, once per repo)}] (stage1) {};
+% ================================================================
+%  STAGE 3 — QA generation
+% ================================================================
+\path (stage2.south -| repo) coordinate (s3ref);
+\node[orangebox, below=2cm of s3ref]    (prompt)   {Structured prompt\\{\sub Summary $\to$ code $\to$ question}};
+\node[orangebox, right=of prompt]       (llm)      {LLM generator\\{\sub Qwen-7B}};
+\node[orangebox, right=of llm]          (citation) {Citation verifier\\{\sub Check file paths exist}};
+\node[greenbox,  right=of citation]     (answer)   {Answer};
+% Stage box
+\coordinate[above=0.9cm of prompt.north] (s3top);
+\coordinate (s3tr) at (s3top -| depgraph.east);
+\node[stage, borderorange, fit=(s3top)(s3tr)(prompt)(answer)] (stage3) {};
+\node[text=borderorange, font=\sffamily\bfseries\footnotesize, anchor=north west]
+    at ([xshift=6pt, yshift=-5pt]stage3.north west)
+    {Stage 3: Structured QA generation};
 
-% --- STAGE 2: RETRIEVAL ---
-\node[graybox, below=2.5cm of repo] (q) {Developer \\ question};
-\node[purplebox, right=of q] (class) {Question classifier \\ \subtitle{Arch / logic / deploy}};
-\node[purplebox, right=of class] (router) {Strategy router \\ \subtitle{Selects retrieval path}};
+% ================================================================
+%  STAGE 4 — Conversational interface
+% ================================================================
+\path (stage3.south -| repo) coordinate (s4ref);
+\node[greenbox, below=2cm of s4ref]  (ui)     {Streamlit chat UI\\{\sub Web interface}};
+\node[greenbox, right=of ui]         (memory) {Conversation memory\\{\sub Last 3--5 exchanges}};
+\node[greenbox, right=of memory]     (source) {Source references\\{\sub Clickable file:line links}};
+% Stage box
+\coordinate[above=0.9cm of ui.north] (s4top);
+\coordinate (s4tr) at (s4top -| depgraph.east);
+\node[stage, bordergreen, fit=(s4top)(s4tr)(ui)(source)] (stage4) {};
+\node[text=bordergreen, font=\sffamily\bfseries\footnotesize, anchor=north west]
+    at ([xshift=6pt, yshift=-5pt]stage4.north west)
+    {Stage 4: Conversational interface};
 
-\node[greenbox, right=of router] (bm25) {BM25 keyword search \\ \subtitle{Exact identifiers match}};
-\node[bluebox, left=0.4cm of bm25] (semantic) {Semantic search \\ \subtitle{Cosine similarity, top-15}};
-\node[orangebox, right=0.4cm of bm25] (structural) {Structural search \\ \subtitle{Dep. graph traversal}};
+% ================================================================
+%  CONNECTIONS
+% ================================================================
+% --- Stage 1 ---
+\draw[arr] (repo)    -- (clone);
+\draw[arr] (clone)   -- (tree);
+\draw[arr] (tree)    -- (noncode);
+\draw[arr] (repo)    -- (summarizer);
+\draw[arr] (summarizer) -- (embedding);
+\draw[arr] (embedding)  -- (chroma);
+\draw[arr] (noncode) -- (chroma);
+\draw[arr] (chroma)  -- (depgraph);
 
-\node[purplebox, below=0.8cm of bm25] (rrf) {Reciprocal rank fusion (RRF) \\ \subtitle{Merge + re-rank results}};
+% --- Stage 2: fan-out / fan-in ---
+\draw[arr] (q) -- (class);
+\draw[arr] (class) -- (router);
+\draw[arr] (router.south) -- ++(0,-0.15) -| (semantic.north);
+\draw[arr] (router.south) -- ++(0,-0.15) -| (bm25.north);
+\draw[arr] (router) -- (structural);
+\draw[arr] (semantic)   -- (rrf);
+\draw[arr] (bm25)       -- (rrf);
+\draw[arr] (structural) -- (rrf);
 
-\node[stage, borderpurple, fit=(q) (structural) (rrf), label={[text=borderpurple, font=\bfseries]above left:Stage 2: Hybrid retrieval with question-type routing (per query)}] (stage2) {};
+% --- Stage 3 ---
+\draw[arr] (prompt) -- (llm);
+\draw[arr] (llm)    -- (citation);
+\draw[arr] (citation) -- (answer);
 
-% --- STAGE 3: GENERATION ---
-\node[orangebox, below=1.8cm of semantic] (prompt) {Structured prompt \\ \subtitle{Summary $\to$ code $\to$ question}};
-\node[orangebox, right=of prompt] (llm) {LLM generator \\ \subtitle{Qwen-7B}};
-\node[orangebox, right=of llm] (citation) {Citation verifier \\ \subtitle{Check file paths exist}};
-\node[greenbox, right=of citation] (answer) {Answer};
+% --- Stage 4 ---
+\draw[arr] (ui)     -- (memory);
+\draw[arr] (memory) -- (source);
 
-\node[stage, borderorange, fit=(prompt) (answer), label={[text=borderorange, font=\bfseries]above left:Stage 3: Structured QA generation (per query)}] (stage3) {};
+% --- Cross-stage (routed through gaps) ---
+\path (stage1.south) -- coordinate[midway] (gap12) (stage2.north);
+\path (stage2.south) -- coordinate[midway] (gap23) (stage3.north);
+\path (stage3.south) -- coordinate[midway] (gap34) (stage4.north);
 
-% --- STAGE 4: INTERFACE ---
-\node[greenbox, below=1.8cm of prompt] (ui) {Streamlit chat UI \\ \subtitle{Web interface}};
-\node[greenbox, right=of ui] (memory) {Conversation memory \\ \subtitle{Last 3--5 exchanges}};
-\node[greenbox, right=of memory] (source) {Source references \\ \subtitle{Clickable file:line links}};
+\draw[darr] (depgraph.south) -- (depgraph |- gap12) -| (structural.north);
+\draw[darr] (rrf.south)      -- (rrf |- gap23)      -| (prompt.north);
+\draw[darr] (answer.south)   -- (answer |- gap34)   -| (ui.north);
 
-\node[stage, bordergreen, fit=(ui) (source), label={[text=bordergreen, font=\bfseries]above left:Stage 4: Conversational interface}] (stage4) {};
-
-% --- CONNECTIONS ---
-\draw[arrow] (repo) -- (clone);
-\draw[arrow] (clone) -- (tree);
-\draw[arrow] (tree) -- (noncode);
-\draw[dashedarrow] (repo.south) |- (summarizer.west);
-\draw[arrow] (summarizer) -- (embedding);
-\draw[arrow] (embedding) -- (chroma);
-\draw[arrow] (noncode) -- (chroma);
-\draw[arrow] (chroma) -- (depgraph);
-
-\draw[arrow] (q) -- (class);
-\draw[arrow] (class) -- (router);
-\draw[arrow] (router) -- (semantic.north west);
-\draw[arrow] (router) -- (bm25);
-\draw[arrow] (router) -- (structural.north west);
-\draw[arrow] (semantic) -- (rrf);
-\draw[arrow] (bm25) -- (rrf);
-\draw[arrow] (structural) -- (rrf);
-
-\draw[dashedarrow] (depgraph) -- (structural);
-\draw[dashedarrow] (rrf) -- (prompt);
-\draw[dashedarrow] (answer) -- (ui);
-
-\draw[arrow] (prompt) -- (llm);
-\draw[arrow] (llm) -- (citation);
-\draw[arrow] (citation) -- (answer);
-
-\draw[arrow] (ui) -- (memory);
-\draw[arrow] (memory) -- (source);
-
-\node[below=0.4cm of stage4, font=\sffamily\scriptsize\itshape, text=gray] {Stage 1 runs once per repo (offline). Stages 2--4 run per developer question (online).};
+\node[below=0.3cm of stage4, font=\sffamily\scriptsize\itshape, text=gray]
+    {Stage 1 runs once per repo (offline).  Stages 2--4 run per developer question (online).};
 
 \end{tikzpicture}
 }
@@ -234,7 +278,7 @@ Given a GitHub repository $R$, we first clone it and traverse its file tree, fil
     \item \textbf{File-level:} For each source file, a summary of its exports (classes, functions), dependencies, and purpose.
 \end{itemize}
 
-\paragraph{Embedding \& Storage.} All chunks (code, non-code, and summaries at each level) are embedded using \texttt{text-embedding-3-small} and stored in ChromaDB with metadata (file path, chunk type, directory, language, summary level).
+\paragraph{Embedding \& Storage.} All chunks (code, non-code, and summaries at each level) are embedded using \texttt{all-mpnet-base-v2} and stored in ChromaDB with metadata (file path, chunk type, directory, language, summary level).
 
 \paragraph{Dependency Graph.} Construct an import graph $G = (V, E)$ where nodes $V$ represent source files and edges $E$ represent import relationships. This enables structural retrieval: if file $A$ is relevant and imports file $B$, then $B$ is likely also relevant.
 
@@ -376,7 +420,7 @@ BM25 (reported) & 6.91 & 6.34 & 7.86 & 8.42 \\
 RepoQA (expected) & \textbf{7.4--7.8} & \textbf{6.8--7.2} & \textbf{8.0--8.3} & \textbf{8.5--8.7} \\
 \bottomrule
 \end{tabular}
-\caption{Expected performance ranges on CoReQA (GPT-4o as generator). ``Reported'' values from \citet{chen2025coreqa}.}
+\caption{Expected performance ranges on CoReQA (Qwen-7B as generator). ``Reported'' values from \citet{chen2025coreqa}.}
 \label{tab:expected}
 \end{table}
 
@@ -438,96 +482,6 @@ If the hybrid retrieval approach demonstrates significant improvement over BM25,
 % ============================================================
 % REFERENCES
 % ============================================================
-\begin{thebibliography}{20}
-\small
-
-\bibitem[Austin et~al.(2021)]{austin2021program}
-Austin, J., Odena, A., Nye, M., Bosma, M., Michalewski, H., Dohan, D., Jiang, E., Cai, C., Terry, M., Le, Q., \& Sutskever, I. (2021).
-\newblock Program synthesis with large language models.
-\newblock \textit{arXiv preprint arXiv:2108.07732}.
-
-\bibitem[Bairi et~al.(2024)]{bairi2024codeplan}
-Bairi, R., Sonwane, A., Kanade, A., Iyer, A., Parthasarathy, S., Rajamani, S., Ashok, B., \& Shet, S. (2024).
-\newblock CodePlan: Repository-level coding using LLMs and planning.
-\newblock In \textit{Proc.\ of the ACM on Software Engineering (FSE)}, 675--698.
-
-\bibitem[CAST(2025)]{cast2025}
-CAST: Enhancing code retrieval-augmented generation with structural chunking via abstract syntax tree. (2025).
-\newblock In \textit{Findings of EMNLP 2025}. Association for Computational Linguistics.
-
-\bibitem[Chen et~al.(2021)]{chen2021evaluating}
-Chen, M., Tworek, J., Jun, H., Yuan, Q., Pinto, H.~P.~d.~O., Kaplan, J., Edwards, H., Burda, Y., Joseph, N., Brockman, G., et~al. (2021).
-\newblock Evaluating large language models trained on code.
-\newblock \textit{arXiv preprint arXiv:2107.03374}.
-
-\bibitem[Chen et~al.(2025)]{chen2025coreqa}
-Chen, J., Zhao, K., Liu, J., Peng, C., Liu, J., Zhu, H., Gao, P., Yang, P., \& Deng, S. (2025).
-\newblock CoReQA: Uncovering potentials of language models in code repository question answering.
-\newblock \textit{arXiv preprint arXiv:2501.03447}.
-
-\bibitem[Cheng et~al.(2024)]{cheng2024draco}
-Cheng, W., Wu, Y., \& Hu, W. (2024).
-\newblock Dataflow-guided retrieval augmentation for repository-level code completion.
-\newblock In \textit{Proc.\ of ACL 2024}, 7957--7977.
-
-\bibitem[CodeRepoQA(2024)]{coderepoqa2024}
-CodeRepoQA: A large-scale benchmark for software engineering question answering. (2024).
-\newblock \textit{arXiv preprint arXiv:2412.14764}.
-
-\bibitem[Gao et~al.(2024)]{gao2024rag}
-Gao, Y., Xiong, Y., Gao, X., Jia, K., Pan, J., Bi, Y., Dai, Y., Sun, J., Wang, H., \& Wang, H. (2024).
-\newblock Retrieval-augmented generation for large language models: A survey.
-\newblock \textit{arXiv preprint arXiv:2312.10997}.
-
-\bibitem[Gistify(2025)]{gistify2025}
-Gistify! Codebase-level understanding. (2025).
-\newblock \textit{OpenReview preprint}.
-
-\bibitem[Jimenez et~al.(2024)]{jimenez2024swebench}
-Jimenez, C.~E., Yang, J., Wettig, A., Yao, S., Pei, K., Press, O., \& Narasimhan, K.~R. (2024).
-\newblock SWE-bench: Can language models resolve real-world GitHub issues?
-\newblock In \textit{Proc.\ of ICLR 2024}.
-
-\bibitem[Lee et~al.(2022)]{lee2022cs1qa}
-Lee, C., Seonwoo, Y., \& Oh, A. (2022).
-\newblock CS1QA: A dataset for assisting code-based question answering in introductory programming course.
-\newblock \textit{arXiv preprint arXiv:2210.14494}.
-
-\bibitem[Liu \& Wan(2021)]{liu2021codeqa}
-Liu, C., \& Wan, X. (2021).
-\newblock CodeQA: A question answering dataset for source code comprehension.
-\newblock In \textit{Findings of EMNLP 2021}, 2618--2632.
-
-\bibitem[Peng et~al.(2025)]{peng2025sweqa}
-Peng, Y., et~al. (2025).
-\newblock SWE-QA: Can language models answer repository-level code questions?
-\newblock \textit{arXiv preprint arXiv:2509.14635}.
-
-\bibitem[Strich et~al.(2024)]{strich2024improving}
-Strich, J., Schneider, F., Nikishina, I., \& Biemann, C. (2024).
-\newblock On improving repository-level code QA for large language models.
-\newblock In \textit{Proc.\ of ACL 2024 Student Research Workshop}, 209--244.
-
-\bibitem[Tufek et~al.(2025)]{tufek2025hierarchical}
-Tufek, A., et~al. (2025).
-\newblock Repository-level code understanding by LLMs via hierarchical summarization.
-\newblock In \textit{ICCSA 2025}. Springer.
-
-\bibitem[Wang et~al.(2025)]{wang2025coderag}
-Wang, Z.~Z., Asai, A., Yu, X.~V., Xu, F.~F., Xie, Y., Neubig, G., \& Fried, D. (2025).
-\newblock CodeRAG-Bench: Can retrieval augment code generation?
-\newblock In \textit{Findings of NAACL 2025}, 3199--3214.
-
-\bibitem[Xia et~al.(2018)]{xia2018measuring}
-Xia, X., Bao, L., Lo, D., Xing, Z., Hassan, A.~E., \& Li, S. (2018).
-\newblock Measuring program comprehension: A large-scale field study with professionals.
-\newblock \textit{IEEE TSE}, 44(10), 951--976.
-
-\bibitem[Zhang et~al.(2023)]{zhang2023repocoder}
-Zhang, F., Chen, B., Zhang, Y., Keung, J., Liu, J., Zan, D., Mao, Y., Lou, J.-G., \& Chen, W. (2023).
-\newblock RepoCoder: Repository-level code completion through iterative retrieval and generation.
-\newblock In \textit{Proc.\ of EMNLP 2023}, 2471--2484.
-
-\end{thebibliography}
+\bibliography{references}    % Points to your references.bib file
 
 \end{document}

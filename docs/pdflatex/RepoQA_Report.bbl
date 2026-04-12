@@ -1,0 +1,98 @@
+\begin{thebibliography}{18}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Austin et~al.(2021)Austin, Odena, Nye, Bosma, Michalewski, Dohan, Jiang, Cai, Terry, Le, and Sutskever]{austin2021program}
+Jacob Austin, Augustus Odena, Maxwell Nye, Maarten Bosma, Henryk Michalewski, David Dohan, Ellen Jiang, Carrie Cai, Michael Terry, Quoc Le, and Ilya Sutskever.
+\newblock Program synthesis with large language models.
+\newblock \emph{arXiv preprint arXiv:2108.07732}, 2021.
+
+\bibitem[Bairi et~al.(2024)Bairi, Sonwane, Kanade, Iyer, Parthasarathy, Rajamani, Ashok, and Shet]{bairi2024codeplan}
+Rishab Bairi, Abhishek Sonwane, Aditya Kanade, Arun Iyer, Sriram Parthasarathy, Sriram Rajamani, B.~Ashok, and S.~Shet.
+\newblock {CodePlan}: Repository-level coding using {LLMs} and planning.
+\newblock In \emph{Proceedings of the ACM on Software Engineering (FSE)}, pages 675--698, 2024.
+
+\bibitem[{CAST Authors}(2025)]{cast2025}
+{CAST Authors}.
+\newblock {CAST}: Enhancing code retrieval-augmented generation with structural chunking via abstract syntax tree.
+\newblock In \emph{Findings of EMNLP 2025}. Association for Computational Linguistics, 2025.
+
+\bibitem[Chen et~al.(2025)Chen, Zhao, Liu, Peng, Liu, Zhu, Gao, Yang, and Deng]{chen2025coreqa}
+J.~Chen, K.~Zhao, J.~Liu, C.~Peng, J.~Liu, H.~Zhu, P.~Gao, P.~Yang, and S.~Deng.
+\newblock {CoReQA}: Uncovering potentials of language models in code repository question answering.
+\newblock \emph{arXiv preprint arXiv:2501.03447}, 2025.
+
+\bibitem[Chen et~al.(2021)Chen, Tworek, Jun, Yuan, Pinto, Kaplan, Edwards, Burda, Joseph, Brockman, et~al.]{chen2021evaluating}
+Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Ponde de~Oliveira Pinto, Jared Kaplan, Harrison Edwards, Yuri Burda, Nicholas Joseph, Greg Brockman, et~al.
+\newblock Evaluating large language models trained on code.
+\newblock \emph{arXiv preprint arXiv:2107.03374}, 2021.
+
+\bibitem[Cheng et~al.(2024)Cheng, Wu, and Hu]{cheng2024draco}
+W.~Cheng, Y.~Wu, and W.~Hu.
+\newblock Dataflow-guided retrieval augmentation for repository-level code completion.
+\newblock In \emph{Proceedings of ACL 2024}, pages 7957--7977, 2024.
+
+\bibitem[{CodeRepoQA Authors}(2024)]{coderepoqa2024}
+{CodeRepoQA Authors}.
+\newblock {CodeRepoQA}: A large-scale benchmark for software engineering question answering.
+\newblock \emph{arXiv preprint arXiv:2412.14764}, 2024.
+
+\bibitem[Gao et~al.(2024)Gao, Xiong, Gao, Jia, Pan, Bi, Dai, Sun, Wang, and Wang]{gao2024rag}
+Yunfan Gao, Yun Xiong, Xiaozhi Gao, Kangxiang Jia, Jinjin Pan, Yuxuan Bi, Yi~Dai, Jiawei Sun, Haofen Wang, and Hong Wang.
+\newblock Retrieval-augmented generation for large language models: A survey.
+\newblock \emph{arXiv preprint arXiv:2312.10997}, 2024.
+
+\bibitem[{Gistify Authors}(2025)]{gistify2025}
+{Gistify Authors}.
+\newblock Gistify! codebase-level understanding.
+\newblock \emph{OpenReview preprint}, 2025.
+
+\bibitem[Jimenez et~al.(2024)Jimenez, Yang, Wettig, Yao, Pei, Press, and Narasimhan]{jimenez2024swebench}
+Carlos~E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, K.~Pei, Omer Press, and Karthik~R. Narasimhan.
+\newblock {SWE-bench}: Can language models resolve real-world {GitHub} issues?
+\newblock In \emph{Proceedings of ICLR 2024}, 2024.
+
+\bibitem[Lee et~al.(2022)Lee, Seonwoo, and Oh]{lee2022cs1qa}
+C.~Lee, Y.~Seonwoo, and A.~Oh.
+\newblock {CS1QA}: A dataset for assisting code-based question answering in introductory programming course.
+\newblock \emph{arXiv preprint arXiv:2210.14494}, 2022.
+
+\bibitem[Liu and Wan(2021)]{liu2021codeqa}
+C.~Liu and X.~Wan.
+\newblock {CodeQA}: A question answering dataset for source code comprehension.
+\newblock In \emph{Findings of EMNLP 2021}, pages 2618--2632, 2021.
+
+\bibitem[Peng et~al.(2025)]{peng2025sweqa}
+Y.~Peng et~al.
+\newblock {SWE-QA}: Can language models answer repository-level code questions?
+\newblock \emph{arXiv preprint arXiv:2509.14635}, 2025.
+
+\bibitem[Strich et~al.(2024)Strich, Schneider, Nikishina, and Biemann]{strich2024improving}
+J.~Strich, F.~Schneider, I.~Nikishina, and C.~Biemann.
+\newblock On improving repository-level code {QA} for large language models.
+\newblock In \emph{Proceedings of ACL 2024 Student Research Workshop}, pages 209--244, 2024.
+
+\bibitem[Tufek et~al.(2025)]{tufek2025hierarchical}
+A.~Tufek et~al.
+\newblock Repository-level code understanding by {LLMs} via hierarchical summarization.
+\newblock In \emph{ICCSA 2025}. Springer, 2025.
+
+\bibitem[Wang et~al.(2025)Wang, Asai, Yu, Xu, Xie, Neubig, and Fried]{wang2025coderag}
+Z.~Z. Wang, A.~Asai, X.~V. Yu, F.~F. Xu, Y.~Xie, G.~Neubig, and D.~Fried.
+\newblock {CodeRAG-Bench}: Can retrieval augment code generation?
+\newblock In \emph{Findings of NAACL 2025}, pages 3199--3214, 2025.
+
+\bibitem[Xia et~al.(2018)Xia, Bao, Lo, Xing, Hassan, and Li]{xia2018measuring}
+Xin Xia, Lingfeng Bao, David Lo, Zhenchang Xing, Ahmed~E. Hassan, and Shanping Li.
+\newblock Measuring program comprehension: A large-scale field study with professionals.
+\newblock \emph{IEEE TSE}, 44\penalty0 (10):\penalty0 951--976, 2018.
+
+\bibitem[Zhang et~al.(2023)Zhang, Chen, Zhang, Keung, Liu, Zan, Mao, Lou, and Chen]{zhang2023repocoder}
+Fengji Zhang, Bei Chen, Yan Zhang, Jacky Keung, J.~Liu, Daoguang Zan, Yi~Mao, Jian-Guang Lou, and Weizhu Chen.
+\newblock {RepoCoder}: Repository-level code completion through iterative retrieval and generation.
+\newblock In \emph{Proceedings of EMNLP 2023}, pages 2471--2484, 2023.
+
+\end{thebibliography}

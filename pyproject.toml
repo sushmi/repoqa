@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repoqa"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  # Core parsing
+  "tree-sitter>=0.21.0",
+  "tree-sitter-python>=0.21.0",
+  "tree-sitter-javascript>=0.21.0",
+  "tree-sitter-typescript>=0.21.0",
+  "tree-sitter-java>=0.21.0",
+  "tree-sitter-go>=0.21.0",
+  "tree-sitter-rust>=0.21.0",
+  "tree-sitter-c>=0.21.0",
+  "tree-sitter-cpp>=0.21.0",
+  # Vector store
+  "chromadb>=0.5.0",
+  # LLM / LangChain
+  "langchain>=0.2.0",
+  "langchain-core>=0.2.0",
+  "langchain-openai>=0.1.0",
+  "langchain-anthropic>=0.1.0",
+  "langchain-community>=0.2.0",
+  # LLM provider SDKs
+  "openai>=1.30.0",
+  "anthropic>=0.28.0",
+  # Token counting
+  "tiktoken>=0.7.0",
+  # Config and environment
+  "pydantic-settings>=2.2.0",
+  "python-dotenv>=1.0.0",
+  # Git access
+  "gitpython>=3.1.40",
+  # YAML parsing
+  "PyYAML>=6.0.0",
+  # Utilities
+  "tqdm>=4.66.0",
+  "rich>=13.7.0",
+  "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.23.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# --------------------------------------------------------------------
+# Packaging (setuptools)
+# --------------------------------------------------------------------
+# This repository has multiple top-level directories (data/, docs/, flask/,
+# images/, preps/, scripts/, tests/, etc.). For editable installs we must
+# explicitly declare which Python packages belong to the distribution.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["repoqa*", "config*"]
+exclude = [
+  "data*",
+  "docs*",
+  "flask*",
+  "images*",
+  "preps*",
+  "scripts*",
+  "tests*",
+]

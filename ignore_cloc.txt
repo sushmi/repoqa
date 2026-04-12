@@ -1,0 +1,14 @@
+flask:  --exclude-dir=1
+flask/.gitignore:  listed in $Not_Code_Extension{gitignore}
+flask/LICENSE.txt:  duplicate of flask/examples/tutorial/LICENSE.txt
+flask/docs/_static/debugger.png:  binary file
+flask/docs/_static/pycharm-run-config.png:  binary file
+flask/docs/tutorial/flaskr_edit.png:  binary file
+flask/docs/tutorial/flaskr_index.png:  binary file
+flask/docs/tutorial/flaskr_login.png:  binary file
+flask/examples/javascript/.gitignore:  listed in $Not_Code_Extension{gitignore}
+flask/examples/javascript/LICENSE.txt:  duplicate of flask/examples/tutorial/LICENSE.txt
+flask/examples/tutorial/.gitignore:  listed in $Not_Code_Extension{gitignore}
+flask/tests/test_apps/.env:  language unknown (#3)
+flask/tests/test_apps/.flaskenv:  language unknown (#3)
+flask/uv.lock:  language unknown (#3)
