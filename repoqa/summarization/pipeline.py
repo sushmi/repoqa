@@ -33,12 +33,20 @@ def _build_llm(settings: Settings):
             anthropic_api_key=settings.anthropic_api_key,
             max_tokens=settings.summary_max_tokens,
         )
-    else:
+    elif settings.llm_provider == "openai":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
             model=settings.chat_model,
             openai_api_key=settings.openai_api_key,
             max_tokens=settings.summary_max_tokens,
+        )
+    else:
+        from langchain_ollama import ChatOllama
+        return ChatOllama(
+            model=settings.chat_model,
+            base_url=settings.ollama_base_url,
+            num_predict=settings.summary_max_tokens,
+            num_ctx=8192,
         )
 
 

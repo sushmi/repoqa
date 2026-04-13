@@ -17,8 +17,12 @@ class Settings(BaseSettings):
     # LLM
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
-    llm_provider: str = Field(default="openai", alias="LLM_PROVIDER")
-    chat_model: str = Field(default="gpt-4o-mini", alias="CHAT_MODEL")
+    llm_provider: str = Field(default="ollama", alias="LLM_PROVIDER")
+    chat_model: str = Field(default="qwen2.5:7b", alias="CHAT_MODEL")
+    ollama_base_url: str = Field(default="http://localhost:11434", alias="OLLAMA_BASE_URL")
+
+    #llm_provider: str = Field(default="openai", alias="LLM_PROVIDER")
+    #chat_model: str = Field(default="gpt-4o-mini", alias="CHAT_MODEL")
 
     # Embeddings
     embedding_model: str = Field(default="text-embedding-3-small", alias="EMBEDDING_MODEL")

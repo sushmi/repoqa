@@ -385,6 +385,16 @@ python scripts/build_summaries.py --chunks data/chunks.json --repo-root /path/to
 
 # Step 3 — embed and index (costs embedding API calls)
 python scripts/build_index.py --chunks data/chunks.json --summaries data/summaries.json --repo-name my-repo
+
+```
+
+Using uv
+
+```bash
+uv run scripts/ingest_repo.py --repo-path /repoqa/flask --output data/flask/transformers_chunks.json
+
+uv run scripts/build_summaries.py --chunks data/flask/transformers_chunks.json --repo-root /repoqa/flask --output data/flask/summaries.json
+
 ```
 
 ---
@@ -466,6 +476,7 @@ uv run python scripts/ingest_repo.py --repo-path /path/to/repo --output data/chu
 uv run python scripts/build_summaries.py --chunks data/chunks.json --repo-root /path/to/repo --output data/summaries.json
 uv run python scripts/build_index.py --chunks data/chunks.json --summaries data/summaries.json --repo-name my-repo
 ```
+
 
 `uv run` executes the command inside the managed virtual environment without needing to activate it first.
 
