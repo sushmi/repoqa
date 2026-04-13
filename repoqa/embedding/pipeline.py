@@ -24,8 +24,10 @@ class EmbeddingPipeline:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self._embedder = Embedder(
+            provider=self.settings.embedding_provider,
             model=self.settings.embedding_model,
             api_key=self.settings.openai_api_key,
+            ollama_base_url=self.settings.ollama_base_url,
         )
         self._store = ChromaStore(persist_dir=self.settings.chroma_persist_dir)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""CLI: run repository ingestion.
+"""01. CLI: run repository ingestion.
 
 Usage:
     python scripts/ingest_repo.py --repo-path /path/to/target-repo --output ./data/chunks.json

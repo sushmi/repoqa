@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""CLI: run hierarchical summarization over ingested chunks.
+"""02. CLI: run hierarchical summarization over ingested chunks.
 
 Usage:
     python scripts/build_summaries.py \\

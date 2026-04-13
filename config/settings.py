@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     #chat_model: str = Field(default="gpt-4o-mini", alias="CHAT_MODEL")
 
     # Embeddings
-    embedding_model: str = Field(default="text-embedding-3-small", alias="EMBEDDING_MODEL")
+    embedding_provider: str = Field(default="ollama", alias="EMBEDDING_PROVIDER")
+    embedding_model: str = Field(default="nomic-embed-text", alias="EMBEDDING_MODEL")
 
     # ChromaDB
     chroma_persist_dir: str = Field(default="./data/chroma", alias="CHROMA_PERSIST_DIR")

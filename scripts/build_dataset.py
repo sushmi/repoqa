@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a CoReQA-style evaluation dataset from GitHub repositories.
+"""00. Build a CoReQA-style evaluation dataset from GitHub repositories.
 
 Usage
 -----

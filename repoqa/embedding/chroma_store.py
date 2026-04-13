@@ -45,13 +45,22 @@ class ChromaStore:
         """Upsert code/prose chunks into the collection."""
         if not chunks:
             return
+        # Deduplicate by ID — ChromaDB rejects batches with duplicate IDs
+        seen: set[str] = set()
+        dedup_idx: list[int] = []
+        for i, c in enumerate(chunks):
+            if c.id not in seen:
+                seen.add(c.id)
+                dedup_idx.append(i)
+        if len(dedup_idx) < len(chunks):
+            logger.warning("Dropped %d duplicate chunk IDs", len(chunks) - len(dedup_idx))
         self._collection.upsert(
-            ids=[c.id for c in chunks],
-            embeddings=embeddings,
-            documents=[c.content for c in chunks],
-            metadatas=[chunk_to_metadata(c, repo_name) for c in chunks],
+            ids=[chunks[i].id for i in dedup_idx],
+            embeddings=[embeddings[i] for i in dedup_idx],
+            documents=[chunks[i].content for i in dedup_idx],
+            metadatas=[chunk_to_metadata(chunks[i], repo_name) for i in dedup_idx],
         )
-        logger.info("Upserted %d chunks for repo=%s", len(chunks), repo_name)
+        logger.info("Upserted %d chunks for repo=%s", len(dedup_idx), repo_name)
 
     def upsert_summaries(
         self,

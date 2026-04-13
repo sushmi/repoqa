@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""CLI: embed chunks + summaries and store in ChromaDB.
+"""03. CLI: embed chunks + summaries and store in ChromaDB.
 
 Usage:
     python scripts/build_index.py \\

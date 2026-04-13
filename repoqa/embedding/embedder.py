@@ -1,10 +1,15 @@
-"""Embedding wrapper with batching and retry logic."""
+"""Embedding wrapper with batching and retry logic.
+
+Supports two providers:
+- "ollama"  — free, local, via Ollama REST API (default)
+- "openai"  — paid, cloud, via OpenAI SDK
+"""
 
 from __future__ import annotations
 
 import logging
 
-from openai import OpenAI
+import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 
@@ -12,28 +17,47 @@ from repoqa.tokenizer import truncate_to_limit
 
 logger = logging.getLogger(__name__)
 
-# text-embedding-3-small max input tokens
-_MAX_INPUT_TOKENS = 8191
-
-
-def _truncate_to_limit(text: str, max_tokens: int = _MAX_INPUT_TOKENS) -> str:
-    return truncate_to_limit(text, max_tokens)
+# Token limits per provider (Ollama limit is conservative because we count
+# tokens with the Qwen tokenizer, which may undercount for other models)
+_TOKEN_LIMITS = {
+    "openai": 8191,     # text-embedding-3-small
+    "ollama": 2048,     # safe limit for nomic-embed-text
+}
 
 
 class Embedder:
-    """Wraps the OpenAI embeddings API with batching and retry."""
+    """Wraps embedding APIs with batching and retry."""
 
-    def __init__(self, model: str = "text-embedding-3-small", api_key: str = "") -> None:
+    def __init__(
+        self,
+        provider: str = "ollama",
+        model: str = "nomic-embed-text",
+        api_key: str = "",
+        ollama_base_url: str = "http://localhost:11434",
+    ) -> None:
+        self.provider = provider
         self.model = model
-        self._client = OpenAI(api_key=api_key) if api_key else OpenAI()
+        self._ollama_base_url = ollama_base_url
+        self._max_tokens = _TOKEN_LIMITS.get(provider, 8192)
 
-    def embed_batch(self, texts: list[str], batch_size: int = 100) -> list[list[float]]:
+        if provider == "openai":
+            from openai import OpenAI
+            self._openai_client = OpenAI(api_key=api_key) if api_key else OpenAI()
+
+    def embed_batch(self, texts: list[str], batch_size: int | None = None) -> list[list[float]]:
         """Embed a list of texts, returning a list of embedding vectors in the same order."""
         if not texts:
             return []
 
-        # Truncate each text to the model's token limit
-        safe_texts = [_truncate_to_limit(t) for t in texts]
+        if batch_size is None:
+            batch_size = 10 if self.provider == "ollama" else 100
+
+        if self.provider == "ollama":
+            # Truncate by characters — ~4 chars per token, stay well under 8192 context
+            max_chars = self._max_tokens * 4
+            safe_texts = [t[:max_chars] for t in texts]
+        else:
+            safe_texts = [truncate_to_limit(t, self._max_tokens) for t in texts]
 
         all_embeddings: list[list[float]] = []
         batches = [safe_texts[i: i + batch_size] for i in range(0, len(safe_texts), batch_size)]
@@ -46,10 +70,27 @@ class Embedder:
 
     @retry(wait=wait_exponential(multiplier=1, min=2, max=60), stop=stop_after_attempt(5))
     def _embed_one_batch(self, texts: list[str]) -> list[list[float]]:
-        response = self._client.embeddings.create(model=self.model, input=texts)
-        # Response items are ordered by index
+        if self.provider == "openai":
+            return self._embed_openai(texts)
+        else:
+            return self._embed_ollama(texts)
+
+    def _embed_openai(self, texts: list[str]) -> list[list[float]]:
+        response = self._openai_client.embeddings.create(model=self.model, input=texts)
         sorted_items = sorted(response.data, key=lambda x: x.index)
         return [item.embedding for item in sorted_items]
+
+    def _embed_ollama(self, texts: list[str]) -> list[list[float]]:
+        # Ollama's /api/embed endpoint accepts multiple texts
+        response = requests.post(
+            f"{self._ollama_base_url}/api/embed",
+            json={"model": self.model, "input": texts},
+            timeout=120,
+        )
+        if not response.ok:
+            logger.error("Ollama embed error %d: %s", response.status_code, response.text[:500])
+        response.raise_for_status()
+        return response.json()["embeddings"]
 
     def embed_single(self, text: str) -> list[float]:
         return self.embed_batch([text])[0]
