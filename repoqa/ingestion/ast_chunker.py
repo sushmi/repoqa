@@ -9,17 +9,13 @@ Tree-sitter online documenation - https://tree-sitter.github.io/
 from __future__ import annotations
 
 import logging
-from typing import Optional
-
-import tiktoken
 
 from repoqa.models import Chunk, FileRecord
 from repoqa.ingestion.ast_parser import ASTParserRegistry
+from repoqa.tokenizer import count_tokens as _count_tokens
 
 logger = logging.getLogger(__name__)
 
-# tiktoken encoder shared across the process (thread-safe after first init)
-_ENCODER = tiktoken.get_encoding("cl100k_base")
 
 # Node types that represent top-level structural units per language.
 # We collect these as the primary chunk boundaries.
@@ -110,10 +106,6 @@ _TYPE_TO_CHUNK_TYPE: dict[str, str] = {
     "mod_item": "module",
     "namespace_definition": "module",
 }
-
-
-def _count_tokens(text: str) -> int:
-    return len(_ENCODER.encode(text))
 
 
 def _extract_symbol_name(node, source_bytes: bytes, language: str) -> str | None:

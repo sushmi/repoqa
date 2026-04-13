@@ -4,24 +4,20 @@ from __future__ import annotations
 
 import logging
 
-import tiktoken
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 
-logger = logging.getLogger(__name__)
+from repoqa.tokenizer import truncate_to_limit
 
-_ENCODER = tiktoken.get_encoding("cl100k_base")
+logger = logging.getLogger(__name__)
 
 # text-embedding-3-small max input tokens
 _MAX_INPUT_TOKENS = 8191
 
 
 def _truncate_to_limit(text: str, max_tokens: int = _MAX_INPUT_TOKENS) -> str:
-    tokens = _ENCODER.encode(text)
-    if len(tokens) <= max_tokens:
-        return text
-    return _ENCODER.decode(tokens[:max_tokens])
+    return truncate_to_limit(text, max_tokens)
 
 
 class Embedder:

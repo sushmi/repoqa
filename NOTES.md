@@ -21,14 +21,15 @@ An NLP workflow is broader, encompassing the entire project life cycle—includi
 
 ## Tokenizers Options (comparison) - for running Qwen locally
 
-|Option     |Library   |Typical use   | Speed/Size   |Token couning accuracy for Qwen   |
-|-----------|----------|--------------|--------------|----------------------------------|
-| Qwen tokenizer (recommended)| `transformers` (Qwen model tokenizer)| Exact token count + ecnode/decode for Qwen | Medium | Eact (matches Qwen vocab/merges)|
-| Fast tokenizer (Rust-backend)| `tokenizer` via `transformers` "fast tokenizers| Samw as above | Fast  | Exact (if a fast tokenizer exists for that model) |
-| SentencePiece| `sentencepiece` | Many LLaMA/T5-style models | Medium  | Usually not exact for Qwen(unless Qwen uses it) |
-|BPE (standalone) | `tokenizers` (custom BPE) | Build/use your own BPE | Fast | Depends (often wrong uness you load Qwen's exact tokenizer files) |
-| OpenAI tokenizer | `tiktoken` | OpenAAI GPT-family token budgeting | Fast  | Not exact for Qwen |
-| Heuristic (chars/words) | none | Quick estimates | Fastest | Approximate|
+
+| Option                        | Library                                         | Typical use                                | Speed/Size | Token couning accuracy for Qwen                                   |
+| ----------------------------- | ----------------------------------------------- | ------------------------------------------ | ---------- | ----------------------------------------------------------------- |
+| Qwen tokenizer (recommended)  | `transformers` (Qwen model tokenizer)           | Exact token count + ecnode/decode for Qwen | Medium     | Eact (matches Qwen vocab/merges)                                  |
+| Fast tokenizer (Rust-backend) | `tokenizer` via `transformers` "fast tokenizers | Samw as above                              | Fast       | Exact (if a fast tokenizer exists for that model)                 |
+| SentencePiece                 | `sentencepiecet`                                | Many LLaMA/T5-style models                 | Medium     | Usually not exact for Qwen(unless Qwen uses it)                   |
+| BPE (standalone)              | `tokenizers` (custom BPE)                       | Build/use your own BPE                     | Fast       | Depends (often wrong uness you load Qwen's exact tokenizer files) |
+| OpenAI tokenizer              | `tiktoken`                                      | OpenAAI GPT-family token budgeting         | Fast       | Not exact for Qwen                                                |
+| Heuristic (chars/words)       | none                                            | Quick estimates                            | Fastest    | Approximate                                                       |
 
 
 ## Tree-sitter
@@ -45,7 +46,7 @@ Error-Tolerant: If a file has a syntax error (common in real-world repos), it do
 
 The standard `ast` module is limited.
 
-1. Language Locked: ast <strong>only works for Python</strong>. If your repo has a .js or .sh file, ast is useless.
+1. Language Locked: ast **only works for Python**. If your repo has a .js or .sh file, ast is useless.
 2. Detail: Tree-sitter keeps track of comments and exact whitespace coordinates, which are usually stripped by standard ASTs but are crucial for providing context to an LLM.
 
 ## Troubleshoot
@@ -97,3 +98,29 @@ uv sync --extra dev
 uv run pytest -q tests/test_ingestion.py
 ```
 
+
+
+### what does this mean PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+
+While executing;
+
+```
+$ uv run scripts/ingest_repo.py --repo-path flask/ --output data/flask/transformer_chunks.json
+```
+
+That warning is harmless for your use case. It means:
+
+- `transformers` has **optional** backends: PyTorch, TensorFlow, JAX/Flax
+- You don't have PyTorch installed, so transformers can't load **model weights** (i.e., the actual neural network for inference)
+- But **tokenizers, configs, and file utilities still work fine** — which is all you need
+
+Since RepoQA only uses `AutoTokenizer` for token counting (not running Qwen inference), you don't need PyTorch installed. The tokenizer loads the vocab/merge files from the Hub and runs pure BPE — no GPU or model weights involved.
+
+You can safely ignore the warning. If it's noisy, you can suppress it by setting the environment variable:
+
+```bash
+export TRANSFORMERS_NO_ADVISORY_WARNINGS=1
+
+```
+
+You'd only need to install PyTorch if you later want to run Qwen locally for inference (e.g., the generation/QA phase).

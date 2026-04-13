@@ -8,18 +8,12 @@ import re
 import tomllib
 from pathlib import Path
 
-import tiktoken
 import yaml
 
 from repoqa.models import Chunk, FileRecord
+from repoqa.tokenizer import count_tokens as _count_tokens
 
 logger = logging.getLogger(__name__)
-
-_ENCODER = tiktoken.get_encoding("cl100k_base")
-
-
-def _count_tokens(text: str) -> int:
-    return len(_ENCODER.encode(text))
 
 
 class NonCodeChunker:

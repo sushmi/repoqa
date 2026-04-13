@@ -4,22 +4,16 @@ from __future__ import annotations
 
 import logging
 
-import tiktoken
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from repoqa.models import Chunk, FileRecord, Summary
 from repoqa.summarization.prompts import FILE_SUMMARY_PROMPT
+from repoqa.tokenizer import count_tokens as _count_tokens
 
 logger = logging.getLogger(__name__)
 
-_ENCODER = tiktoken.get_encoding("cl100k_base")
-
 # Priority order when selecting representative chunks for the LLM prompt
 _CHUNK_PRIORITY = ["function", "class", "module", "config", "prose"]
-
-
-def _count_tokens(text: str) -> int:
-    return len(_ENCODER.encode(text))
 
 
 class FileSummarizer:
