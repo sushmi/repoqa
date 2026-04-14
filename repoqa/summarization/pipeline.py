@@ -64,7 +64,7 @@ class HierarchicalSummarizationPipeline:
         """Generate all summaries and return them as a flat list."""
         all_summaries: list[Summary] = []
 
-        # --- Phase 1: File summaries ---
+        # --- Step 1: File summaries ---
         chunks_by_file: dict[str, list[Chunk]] = defaultdict(list)
         for c in chunks:
             chunks_by_file[c.file_record.repo_path].append(c)
@@ -79,7 +79,7 @@ class HierarchicalSummarizationPipeline:
             except Exception as exc:
                 logger.warning("File summarization failed for %s: %s", repo_path, exc)
 
-        # --- Phase 2: Directory summaries (bottom-up tree traversal) ---
+        # --- Step 2: Directory summaries (bottom-up tree traversal) ---
         # Group file summaries by their parent directory
         dir_to_file_summaries: dict[str, list[Summary]] = defaultdict(list)
         for repo_path, summary in file_summaries.items():
@@ -111,7 +111,7 @@ class HierarchicalSummarizationPipeline:
             except Exception as exc:
                 logger.warning("Dir summarization failed for %s: %s", dir_path, exc)
 
-        # --- Phase 3: Project summary ---
+        # --- Step 3: Project summary ---
         console.print("[bold cyan]Generating project summary...[/bold cyan]")
         readme_chunk = self._find_readme_chunk(chunks)
         top_level_dirs = [s for path, s in dir_summaries.items() if str(Path(path).parent) in (".", "")]

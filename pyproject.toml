@@ -42,6 +42,8 @@ dependencies = [
   "tenacity>=8.2.0",
   "pytest>=9.0.3",
   "transformers>=5.5.3",
+  # Retrieval
+  "rank-bm25>=0.2.2",
 ]
 
 [project.optional-dependencies]

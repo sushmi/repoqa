@@ -7,6 +7,7 @@ from repoqa.models import Chunk, FileRecord
 from repoqa.ingestion.repo_crawler import classify_file, crawl_repo
 from repoqa.ingestion.ast_chunker import ASTChunker
 from repoqa.ingestion.noncode_chunker import NonCodeChunker
+from repoqa.ingestion.dep_graph_builder import DepGraphBuilder, DepGraph
 from pathlib import Path
 
 
@@ -127,3 +128,130 @@ def test_noncode_dockerfile():
     chunks = chunker.chunk_file(fr)
     assert len(chunks) >= 1
     assert all(c.chunk_type == "config" for c in chunks)
+
+
+# ---------------------------------------------------------------------------
+# DepGraphBuilder tests
+# ---------------------------------------------------------------------------
+
+def test_dep_graph_python_imports():
+    """Detects import relationships between Python files."""
+    main_code = textwrap.dedent("""\
+        from utils import helper
+        from models import User
+
+        def main():
+            helper()
+    """)
+    utils_code = "def helper(): pass\n"
+    models_code = "class User: pass\n"
+
+    records = [
+        make_file_record("main.py", "python", main_code),
+        make_file_record("utils.py", "python", utils_code),
+        make_file_record("models.py", "python", models_code),
+    ]
+
+    builder = DepGraphBuilder()
+    graph = builder.build(records)
+
+    assert "main.py" in graph.edges
+    assert "utils.py" in graph.edges["main.py"]
+    assert "models.py" in graph.edges["main.py"]
+
+
+def test_dep_graph_relative_import():
+    """Resolves relative imports like 'from .utils import foo'."""
+    code = textwrap.dedent("""\
+        from .helpers import do_stuff
+    """)
+    records = [
+        make_file_record("src/app.py", "python", code),
+        make_file_record("src/helpers.py", "python", "def do_stuff(): pass\n"),
+    ]
+
+    builder = DepGraphBuilder()
+    graph = builder.build(records)
+
+    assert "src/app.py" in graph.edges
+    assert "src/helpers.py" in graph.edges["src/app.py"]
+
+
+def test_dep_graph_unresolved_imports_skipped():
+    """External imports (not in repo) should not appear as edges."""
+    code = textwrap.dedent("""\
+        import os
+        import flask
+        from pathlib import Path
+    """)
+    records = [make_file_record("app.py", "python", code)]
+
+    builder = DepGraphBuilder()
+    graph = builder.build(records)
+
+    # os, flask, pathlib are not in the repo — no edges
+    assert graph.edges.get("app.py", []) == []
+
+
+def test_dep_graph_get_neighbors():
+    """get_neighbors returns both imports and importers."""
+    a_code = "from b import foo\n"
+    b_code = "def foo(): pass\n"
+    c_code = "from b import foo\n"
+
+    records = [
+        make_file_record("a.py", "python", a_code),
+        make_file_record("b.py", "python", b_code),
+        make_file_record("c.py", "python", c_code),
+    ]
+
+    builder = DepGraphBuilder()
+    graph = builder.build(records)
+
+    # b.py is imported by both a.py and c.py
+    neighbors = graph.get_neighbors("b.py")
+    assert "a.py" in neighbors
+    assert "c.py" in neighbors
+
+
+def test_dep_graph_javascript_imports():
+    """Detects JS import statements with relative paths."""
+    code = 'import App from "./App";\nimport { helper } from "../utils/helper";\n'
+    records = [
+        make_file_record("src/index.js", "javascript", code),
+        make_file_record("src/App.js", "javascript", "export default function App() {}\n"),
+        make_file_record("utils/helper.js", "javascript", "export function helper() {}\n"),
+    ]
+
+    builder = DepGraphBuilder()
+    graph = builder.build(records)
+
+    assert "src/index.js" in graph.edges
+    assert "src/App.js" in graph.edges["src/index.js"]
+    assert "utils/helper.js" in graph.edges["src/index.js"]
+
+
+def test_dep_graph_save_and_load(tmp_path):
+    """Graph can be saved to JSON and loaded back."""
+    graph = DepGraph(
+        edges={"a.py": ["b.py", "c.py"], "b.py": ["c.py"]},
+        raw_imports={"a.py": ["b", "c"], "b.py": ["c"]},
+    )
+    path = str(tmp_path / "depgraph.json")
+    graph.save(path)
+
+    loaded = DepGraph.load(path)
+    assert loaded.edges == graph.edges
+    assert loaded.raw_imports == graph.raw_imports
+
+
+def test_dep_graph_summary():
+    """Summary reports correct stats."""
+    graph = DepGraph(
+        edges={"a.py": ["b.py", "c.py"], "b.py": ["c.py"]},
+        raw_imports={},
+    )
+    stats = graph.summary()
+    assert stats["files"] == 2
+    assert stats["total_edges"] == 3
+    assert stats["avg_imports_per_file"] == 1.5

@@ -19,6 +19,7 @@ from repoqa.models import Chunk, FileRecord
 from repoqa.ingestion.repo_crawler import crawl_repo
 from repoqa.ingestion.ast_chunker import ASTChunker
 from repoqa.ingestion.noncode_chunker import NonCodeChunker
+from repoqa.ingestion.dep_graph_builder import DepGraphBuilder, DepGraph
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -40,9 +41,10 @@ class IngestionPipeline:
             max_tokens=self.settings.chunk_max_tokens,
             overlap_tokens=self.settings.chunk_overlap_tokens,
         )
+        self._dep_graph_builder = DepGraphBuilder()
 
-    def run(self, repo_root: str) -> list[Chunk]:
-        """Crawl *repo_root* and return all chunks."""
+    def run(self, repo_root: str) -> tuple[list[Chunk], DepGraph]:
+        """Crawl *repo_root* and return all chunks + dependency graph."""
         console.print(f"[bold cyan]Ingesting repository with skip rules:[/bold cyan] {repo_root}")
 
         """Step 1: Crawl the repository and get the list of files"""
@@ -63,18 +65,32 @@ class IngestionPipeline:
             except Exception as exc:
                 logger.warning("Failed to chunk %s: %s", record.repo_path, exc)
 
-        self._print_stats(all_chunks)
-        return all_chunks
+        """Step 3: Build dependency graph from import relationships"""
+        console.print("[bold cyan]Building dependency graph...[/bold cyan]")
+        dep_graph = self._dep_graph_builder.build(records)
+        stats = dep_graph.summary()
+        console.print(f"  Dependency graph: [green]{stats['files']}[/green] files, "
+                      f"[green]{stats['total_edges']}[/green] edges, "
+                      f"avg {stats['avg_imports_per_file']} imports/file")
 
-    def run_and_save(self, repo_root: str, output_path: str) -> list[Chunk]:
-        """Run ingestion and save chunks to *output_path* as JSON."""
-        chunks = self.run(repo_root)
+        self._print_stats(all_chunks)
+        return all_chunks, dep_graph
+
+    def run_and_save(self, repo_root: str, output_path: str) -> tuple[list[Chunk], DepGraph]:
+        """Run ingestion and save chunks + dep graph to disk."""
+        chunks, dep_graph = self.run(repo_root)
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8") as f:
             json.dump([dataclasses.asdict(c) for c in chunks], f, indent=2)
         console.print(f"[bold green]Saved {len(chunks)} chunks to {output_path}[/bold green]")
-        return chunks
+
+        # Save dep graph alongside chunks
+        graph_path = str(out.with_name(out.stem + "_depgraph.json"))
+        dep_graph.save(graph_path)
+        console.print(f"[bold green]Saved dependency graph to {graph_path}[/bold green]")
+
+        return chunks, dep_graph
 
     @staticmethod
     def load_chunks(json_path: str) -> list[Chunk]:
