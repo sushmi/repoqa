@@ -11,26 +11,15 @@ This document is the contributor guide and development log for RepoQA. It explai
 2. [Shared Data Models](#2-shared-data-models)
 3. [Configuration](#3-configuration)
 4. [Phase 1 — Repository Ingestion](#4-phase-1--repository-ingestion)
-  - [Repo Crawler](#41-repo-crawler)
-  - [AST Parser Registry](#42-ast-parser-registry)
-  - [AST-Aware Chunker](#43-ast-aware-chunker)
-  - [Non-Code Chunker](#44-non-code-chunker)
-  - [Ingestion Pipeline Orchestrator](#45-ingestion-pipeline-orchestrator)
 5. [Phase 2 — Hierarchical Summarization](#5-phase-2--hierarchical-summarization)
-  - [Prompt Templates](#51-prompt-templates)
-  - [File Summarizer](#52-file-summarizer)
-  - [Directory Summarizer](#53-directory-summarizer)
-  - [Project Summarizer](#54-project-summarizer)
-  - [Summarization Pipeline Orchestrator](#55-summarization-pipeline-orchestrator)
 6. [Phase 3 — Embedding & Vector Storage](#6-phase-3--embedding--vector-storage)
-  - [Metadata Schema](#61-metadata-schema)
-  - [Embedder](#62-embedder)
-  - [ChromaDB Store](#63-chromadb-store)
-  - [Embedding Pipeline Orchestrator](#64-embedding-pipeline-orchestrator)
 7. [CLI Scripts](#7-cli-scripts)
 8. [Tests](#8-tests)
 9. [Environment Setup](#9-environment-setup)
-10. [What Comes Next](#10-what-comes-next)
+10. [Phase 4 — Retrieval](#11-phase-4--retrieval-stage-2-of-the-paper)
+11. [Phase 5 — QA Generation](#12-phase-5--qa-generation-stage-3-of-the-paper)
+12. [Evaluation & Experiments](#13-evaluation--experiments)
+13. [What Comes Next](#14-what-comes-next)
 
 ---
 
@@ -45,9 +34,12 @@ The report (`docs/pdflatex/RepoQA_Report.pdf`, Figure 1) describes RepoQA as a *
 
 **What this repo currently contains (as of this doc):**
 
-- **Implemented (Stage 1)**: ingestion + chunking, hierarchical summarization, embedding + ChromaDB persistence (see sections 4–6 and scripts in section 7).
-- **Partially implemented (Stage 2/3)**: a lightweight question-type classifier exists at `repoqa/evaluation/question_classifier.py` (regex-based, for dataset labeling and experimentation), but the full hybrid retrieval + routing + RRF + citation verifier + UI are tracked in “What Comes Next” (section 10).
-- **Implemented (evaluation utilities)**: dataset mining tooling (`scripts/build_dataset.py`, `repoqa/evaluation/`*) to build a CoReQA-style dataset from GitHub issues.
+- **Implemented (Stage 1)**: ingestion + chunking, dependency-graph construction, hierarchical summarization, embedding + ChromaDB persistence (see sections 4–6 and scripts in section 7).
+- **Implemented (Stage 2)**: hybrid retrieval with question classification, strategy routing, query expansion, BM25, and Reciprocal Rank Fusion (`repoqa/retrieval/*`, section 11).
+- **Implemented (Stage 3)**: structured-prompt answer generation + citation verification (`repoqa/qa/*`, section 12).
+- **Implemented (Stage 4)**: Streamlit chat UI (`repoqa/ui/app.py`).
+- **Implemented (evaluation)**: dataset mining (`scripts/build_dataset.py`), deterministic metrics (`repoqa/evaluation/metrics.py`), LLM-as-Judge (`repoqa/evaluation/judge.py`, Gemini + Ollama backends), ablation runner (`scripts/run_experiments.py`), report generator (`scripts/generate_report.py`), Tier-1 grounding check (`scripts/validate_summaries.py`). See section 13.
+- **Not yet wired in:** the dependency graph is built at ingestion but is not consumed by `hybrid_retriever` — retrieval currently fuses semantic + BM25 only. A third RRF input for dep-graph expansion is a tracked gap (section 14).
 
 This section is intentionally “paper-first”; the rest of the document is “code-first” and points at the concrete modules in this repository.
 
@@ -108,15 +100,28 @@ repoqa/
 **Fields:**
 
 
-| Field                  | Default                  | Purpose                                                                    |
-| ---------------------- | ------------------------ | -------------------------------------------------------------------------- |
-| `llm_provider`         | `openai`                 | Switch between OpenAI and Anthropic for summarization                      |
-| `chat_model`           | `gpt-4o-mini`            | LLM used for summarization (cheaper during development)                    |
-| `embedding_model`      | `text-embedding-3-small` | OpenAI embedding model                                                     |
-| `chroma_persist_dir`   | `./data/chroma`          | Where ChromaDB writes its on-disk index                                    |
-| `chunk_max_tokens`     | `512`                    | Maximum tokens per chunk (balances context size vs. retrieval granularity) |
-| `chunk_overlap_tokens` | `64`                     | Overlap between adjacent chunks when splitting large nodes                 |
-| `summary_max_tokens`   | `4096`                   | Maximum tokens the LLM may generate per summary                            |
+| Field                  | Default              | Purpose                                                                    |
+| ---------------------- | -------------------- | -------------------------------------------------------------------------- |
+| `llm_provider`         | `ollama`             | `ollama` (local default) or `openai`                                       |
+| `chat_model`           | `qwen2.5:7b`         | Generator/summarizer LLM (via Ollama); switch to `gpt-4o-mini` for OpenAI  |
+| `embedding_provider`   | `ollama`             | `ollama` or `openai`                                                       |
+| `embedding_model`      | `nomic-embed-text`   | 768-dim embedder (or `text-embedding-3-small` for OpenAI)                  |
+| `ollama_base_url`      | `http://localhost:11434` | Ollama REST endpoint                                                   |
+| `chroma_persist_dir`   | `./data/chroma`      | Where ChromaDB writes its on-disk index                                    |
+| `chunk_max_tokens`     | `512`                | Maximum tokens per chunk (balances context size vs. retrieval granularity) |
+| `chunk_overlap_tokens` | `64`                 | Overlap between adjacent chunks when splitting large nodes                 |
+| `summary_max_tokens`   | `4096`               | Maximum tokens the LLM may generate per summary                            |
+| `enable_summaries`     | `true`               | Ablation: include summaries in retrieval                                   |
+| `enable_hybrid`        | `true`               | Ablation: BM25 + semantic RRF fusion                                       |
+| `enable_query_expansion` | `true`             | Ablation: LLM query expansion                                              |
+| `enable_routing`       | `true`               | Ablation: question-type-aware strategy routing                             |
+| `enable_retrieval`     | `true`               | Ablation: retrieval on/off                                                 |
+| `judge_provider`       | `gemini`             | LLM-as-Judge: `gemini` (20 req/day free) or `ollama` (local)               |
+| `judge_model`          | `gemini-2.5-flash`   | Gemini judge model                                                         |
+| `judge_model_local`    | `llama3.1:8b`        | Fallback judge model when `judge_provider=ollama`                          |
+| `judge_runs_per_question` | `3`               | Judge invocations per answer (for mean ± std)                              |
+
+**Cross-family judge decision:** the generator is Qwen and the judge defaults to Gemini (or a fallback Llama) to avoid self-evaluation bias — an LLM tends to score answers from its own model family more favorably.
 
 
 ---
@@ -506,25 +511,200 @@ cp .env.example .env
 
 ---
 
-## 10. What Comes Next
+## 11. Phase 4 — Retrieval (Stage 2 of the paper)
 
-The three pipeline phases above constitute the **offline indexing layer** (report Stage 1; run once per repository). The remaining work is the **online QA layer** (report Stages 2–4), plus the **benchmark evaluation** described in the report:
+**Directory:** `repoqa/retrieval/`
 
+The retrieval layer runs per-question and is fully ablatable via `config/settings.py` flags.
 
-| Component                    | Description                                                                                                                                       | Paper section |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| Question classifier          | Classify each developer question as `architecture`, `logic`, or `deployment` using an LLM prompt                                                  | §3.2          |
-| Hybrid retrieval engine      | Fuse semantic search (ChromaDB), BM25 keyword matching, and dependency-graph traversal using Reciprocal Rank Fusion (RRF)                         | §3.2          |
-| Type-aware routing           | Route each question type to the appropriate retrieval strategy (top-down for architecture, function-level for logic, config-first for deployment) | §3.2          |
-| Query expansion              | Expand the developer's question into additional search terms before retrieval                                                                     | §3.2          |
-| Structured prompt generation | Assemble retrieved context top-down (project summary → directory summaries → code chunks) with citation requirements                              | §3.3          |
-| Citation verifier            | Post-generation check that every cited file path and function name exists in the repository                                                       | §3.4          |
-| Streamlit web UI             | Chat interface with source reference links                                                                                                        | §8.3          |
-| CoReQA evaluation            | Run the CoReQA benchmark and ablations; report Accuracy/Completeness/Relevance/Clarity, Retrieval Recall@k, and citation accuracy                 | §4–§6         |
+### 11.1 Question classifier
 
+**File:** `repoqa/retrieval/question_classifier.py`
 
-**Evaluation support already in this repo:**
+LLM classifier returning `architecture | logic | deployment`. Strips/lowercases the LLM output and falls back to `"logic"` on anything unexpected. Used by `hybrid_retriever` at query time when `enable_routing=true`.
 
-- **Dataset mining**: `scripts/build_dataset.py` builds a CoReQA-style dataset from GitHub issues/comments (requires `GITHUB_TOKEN`) into `data/evaluation/dataset.json`.
-- **Question-type labeling**: `repoqa/evaluation/question_classifier.py` provides a simple rule-based baseline classifier for categorizing questions during dataset construction/analysis.
+A second, regex-based classifier lives at `repoqa/evaluation/question_classifier.py` — that one labels the *dataset* offline. `classifier_acc` in reports compares these two automated classifiers, not against a human label.
+
+### 11.2 Strategy router
+
+**File:** `repoqa/retrieval/strategy_router.py`
+
+Per-question-type retrieval config: `semantic_k`, `bm25_k`, `semantic_weight`, `bm25_weight`, `semantic_filters`, `include_summaries`. Architecture questions boost semantic and include summaries; logic questions skip summaries and boost BM25; deployment is balanced.
+
+### 11.3 Query expander
+
+**File:** `repoqa/retrieval/query_expander.py`
+
+Separate LLM call that generates 5-10 additional search terms and appends them to the question before retrieval. Helps both BM25 (more keyword hits) and semantic search (richer embedding).
+
+### 11.4 BM25 retriever
+
+**File:** `repoqa/retrieval/bm25_retriever.py`
+
+Classic BM25 over chunk contents. Runs on chunks only (not summaries). Returns `(chunk, score)` tuples; fusion only consumes the rank order.
+
+### 11.5 RRF fusion
+
+**File:** `repoqa/retrieval/rrf_fusion.py`
+
+Reciprocal Rank Fusion (Cormack et al., SIGIR 2009):
+
+```
+RRF(d) = Σ  w_r / (k + rank_r(d))        k = 60
+```
+
+Throws away scores, operates on ranks — so semantic cosine distance and BM25 scores never need normalization. Weights come from the active `RetrievalStrategy`.
+
+### 11.6 Hybrid retriever
+
+**File:** `repoqa/retrieval/hybrid_retriever.py`
+
+Orchestrates the full pipeline:
+
+1. Classify question (skipped if `enable_routing=false` → LOGIC_STRATEGY).
+2. Expand query (skipped if `enable_query_expansion=false`).
+3. Semantic search (ChromaDB cosine + metadata filter; `doc_type=chunk` forced when `enable_summaries=false`).
+4. BM25 search (skipped if `enable_hybrid=false`).
+5. RRF fuse.
+6. Return top-K chunk IDs.
+
+**Not yet implemented:** a third ranked list from dependency-graph traversal (neighbors by import/call edges). `dep_graph_builder` already produces the data at ingestion time but the retriever never consumes it.
+
+---
+
+## 12. Phase 5 — QA Generation (Stage 3 of the paper)
+
+**Directory:** `repoqa/qa/`
+
+### 12.1 Context builder
+
+**File:** `repoqa/qa/context_builder.py`
+
+Packs retrieved chunks into a single formatted string within a token budget (default 4000 via `max_context_tokens`). Each chunk becomes:
+
+```
+[path/file.py:start-end | function: symbol_name]
+```python
+<content>
+```
+```
+
+If a single chunk exceeds the budget, it is truncated mid-content and the rest of the context is dropped — this is a known hallucination risk: the LLM sees half a function and may fabricate the rest (see section 14).
+
+### 12.2 Prompt templates
+
+**File:** `repoqa/qa/prompts.py`
+
+Three system prompts (architecture / logic / deployment) paired with three `_TYPE_GUIDANCE` blocks injected into a shared human template. The template enforces a structured output:
+
+```
+ANSWER: <3-8 sentences with inline [path:start-end] citations>
+CITATIONS: - <path:start-end>
+CONFIDENCE: <high | medium | low>
+```
+
+### 12.3 Answer generator
+
+**File:** `repoqa/qa/answer_generator.py`
+
+- Invokes the LLM via LangChain pipe (`chain = prompt | llm`) with `tenacity` retry (3 attempts, exponential 2-30s backoff).
+- Parses the structured output with three regexes. Silent fallback if the format is ignored: whole output used as answer, confidence defaults to `"medium"`.
+- Handoff to `citation_verifier`.
+
+### 12.4 Citation verifier
+
+**File:** `repoqa/qa/citation_verifier.py`
+
+Extracts every `[path]`, `[path:line]`, or `[path:start-end]` from the answer. Each citation is marked `verified=True` iff its path matches a retrieved chunk's `repo_path` **and** its line range overlaps the chunk's `[start_line, end_line]`.
+
+Returns `VerifiedAnswer` with `verified_count`, `unverified_count`, `coverage_ratio`, and `used_chunk_ids`. Logs a warning when unverified citations exist.
+
+**What this does NOT catch:** cited chunks whose content doesn't actually support the claim (risk 2 in section 14). The verifier checks path+range, not semantic grounding.
+
+### 12.5 QA pipeline
+
+**File:** `repoqa/qa/pipeline.py`
+
+End-to-end orchestrator: `pipeline.ask(question, n_results)` → classify → retrieve → build context → generate → verify → `QAResult`.
+
+---
+
+## 13. Evaluation & Experiments
+
+### 13.1 Deterministic metrics
+
+**File:** `repoqa/evaluation/metrics.py`
+
+- **`retrieval_recall_at_k`** — fraction of technical keywords extracted from the reference answer that appear in any retrieved chunk. No LLM required.
+- **`citation_accuracy`** — fraction of cited file paths that exist in the repo (a hallucination detector for file-path claims). Known limitation: returns `1.0` when answer has zero citations, inflating scores for lazy answers.
+
+### 13.2 LLM-as-Judge
+
+**File:** `repoqa/evaluation/judge.py`
+
+Two interchangeable judges implementing `score()` / `score_n_times()`:
+
+- **`GeminiJudge`** — Gemini 2.5 Flash via REST API. 20 req/day on the free tier.
+- **`OllamaJudge`** — local `llama3.1:8b`. No quota but slower and weaker.
+
+Both use the same prompt and return 4 dimensions (accuracy / completeness / relevance / clarity, each 1-10). Cross-family pairing is deliberate: avoid self-evaluation bias when the generator is Qwen.
+
+`score_n_times()` runs the judge N times (default 3) and reports mean ± std — judge outputs are non-deterministic on 1-10 integer scales, so a single run is noisy.
+
+### 13.3 Ablation runner
+
+**File:** `scripts/run_experiments.py`
+
+Iterates `CONFIGS` × questions × judge_runs. Each row flips some subset of the `ENABLE_*` flags. Writes JSONL with metadata header + one `result` record per (config, question). Supports `--skip-judge` (deterministic metrics only), `--configs <subset>`, `--max-questions N`, `--judge-provider {gemini,ollama}`.
+
+### 13.4 Report generator
+
+**File:** `scripts/generate_report.py`
+
+Reads the JSONL and emits a markdown report with ablation table, recall-by-question-type table, key findings, caveats, and reproducibility notes. Also writes `aggregated_scores.csv`.
+
+### 13.5 Tier-1 summary grounding check
+
+**File:** `scripts/validate_summaries.py`
+
+Automated identifier-grounding check for LLM-generated summaries. Extracts backtick-quoted tokens and inline `foo_bar()`/`FooBar()` mentions from each summary, then verifies they exist in the summarized source (file → file, directory → filenames + concatenated file contents, project → all `.py/.md/.rst/.txt/.yaml/.toml/.cfg`).
+
+Reports two stats per level:
+
+- **Grounded** = `(idents − missing) / idents` — per-identifier accuracy.
+- **Clean** = `(summaries with 0 missing idents) / summaries` — per-summary accuracy.
+
+Output also includes a JSON file with per-summary breakdown and prints the 5 worst offenders. Catches *gross* hallucination (fabricated names). Does NOT catch semantic errors (wrong relationship between real entities, wrong behavior description) — those require manual review.
+
+---
+
+## 14. What Comes Next
+
+Updated priority list for the remaining research and engineering work:
+
+| Component                                | Status       | Notes |
+| ---------------------------------------- | ------------ | ----- |
+| Dep-graph as third RRF input             | **Blocked**  | Data exists (`dep_graph_builder`) but not consumed by `hybrid_retriever`. Either wire it in (add `graph_weight` to `RetrievalStrategy`, add `_graph_expand` step) or remove dep-graph from the paper's hypothesis. |
+| RRF weight-tuning ablation               | **Next**     | `semantic_only` has beaten `full_repoqa` on recall in 3 of 4 runs. Add configs for semantic:bm25 = 0.7:0.3 / 0.5:0.5 / 0.3:0.7 to resolve whether the weights are miscalibrated or BM25 is genuinely hurting. |
+| Scale evaluation beyond N=3 questions    | **Critical** | At N=3, recall steps are ~7pp, `classifier_acc` steps are 33pp, `cite_acc` std is ±57.7pp — nothing in the table is statistically meaningful. Target N ≥ 20. |
+| Answer-level identifier grounding        | **Next**     | Reuse the `validate_summaries.py` machinery against `QAResult.answer`. Catches paraphrased identifiers and cross-chunk fabrication — risks 3/4 in the hallucination taxonomy. Cheap, no extra LLM call. |
+| Non-vacuous `cite_acc`                   | **Cheap**    | `metrics.py:87-88` returns 1.0 on empty citations. One-line change to return 0.0. |
+| Deterministic confidence                 | **Cheap**    | Replace LLM self-reported `CONFIDENCE` with a rule from `coverage_ratio` + answer grounding. |
+| Empty-retrieval short-circuit            | **Cheap**    | If retrieval returns zero chunks, `pipeline.ask()` should return `"No relevant context retrieved"` at `confidence=low` rather than letting the LLM answer from parametric memory. |
+| Full CoReQA benchmark (176 repos)        | **Future**   | Needs compute/API budget. |
+| Improve question classifier              | **Future**   | Currently 67% on N=3 (against auto-labels, not human). Needs larger labeled set first. |
+| Manual answer review (N=20-30)           | **Future**   | Paper-grade evidence that the system isn't silently hallucinating beyond what metrics catch. |
+
+### Hallucination risk taxonomy (reference)
+
+QA-layer risks the current verifier does NOT catch:
+
+1. ❌ Cited chunk doesn't support the claim (path+range match, content mismatch).
+2. ❌ Paraphrased/fabricated identifiers (`before_request_funcs` → `before_request_handlers`).
+3. ❌ Cross-chunk narrative hallucination (LLM fills gaps from pretraining priors).
+4. ❌ Self-reported confidence uncorrelated with grounding.
+5. ❌ Empty-retrieval fallback → parametric-memory answer.
+6. ❌ Truncated-chunk continuation fabricated.
+
+The summary-layer grounding check (section 13.5) covers a related but distinct concern — fabricated identifiers *in the index*. QA-layer checks still need to be added.
 

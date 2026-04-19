@@ -1,6 +1,8 @@
 # RepoQA
 
-Repository-level question answering over source code. RepoQA ingests a codebase, builds hierarchical summaries, embeds everything into ChromaDB, and answers developer questions using hybrid retrieval (semantic + BM25 + structural).
+Repository-level question answering over source code. RepoQA ingests a codebase, builds hierarchical summaries, embeds everything into ChromaDB, and answers developer questions using hybrid retrieval (semantic + BM25 + RRF fusion) followed by citation-verified LLM generation. A Streamlit UI and an ablation-experiment harness are included.
+
+Primary evaluation target: `pallets/flask`. Default generator/embedder run locally via Ollama (Qwen 2.5 7B + nomic-embed-text); an OpenAI path is also supported.
 
 ## Steps followed:
 
@@ -79,30 +81,45 @@ When traversing the repo, skip generated artifacts and non-source/binary content
 
 ## Architecture
 
+**Offline (once per repo):**
+
 ```
-repo_crawler -> ast_chunker/noncode_chunker -> file_summarizer -> dir_summarizer -> project_summarizer -> embedder -> chroma_store
-     |                  |                              |                                                      |
-  Phase 1: Ingestion    |                    Phase 2: Summarization                                  Phase 3: Embedding
-                        |
-                    Chunk(id, content, chunk_type, symbol_name, language, ...)
+repo_crawler -> ast_chunker / noncode_chunker -> dep_graph_builder
+             -> file_summarizer -> dir_summarizer -> project_summarizer
+             -> embedder -> chroma_store
 ```
 
-Three-phase pipeline:
+**Online (per question):**
 
-1. **Ingestion** -- clone/crawl repo, parse ASTs (tree-sitter), chunk code into semantic units (functions, classes, modules), chunk non-code files (markdown, config, dockerfiles)
-2. **Summarization** -- bottom-up LLM summarization: file -> directory -> project level
-3. **Embedding** -- embed chunks + summaries with OpenAI embeddings, store in ChromaDB
+```
+question -> question_classifier -> strategy_router
+         -> query_expander -> hybrid_retriever (semantic + BM25 + RRF)
+         -> context_builder -> answer_generator -> citation_verifier
+```
+
+Phases:
+
+1. **Ingestion** — clone/crawl repo, parse ASTs (tree-sitter), chunk code into semantic units (functions, classes, modules), chunk non-code files (markdown, config, dockerfiles), build import dependency graph.
+2. **Summarization** — bottom-up LLM summarization: file → directory → project level.
+3. **Embedding** — embed chunks + summaries with Ollama (default) or OpenAI, store in ChromaDB (cosine).
+4. **Retrieval** — classify question type (architecture/logic/deployment), route to type-specific strategy, expand query, fuse semantic + BM25 via Reciprocal Rank Fusion.
+5. **Generation** — build token-budgeted context, generate structured `ANSWER/CITATIONS/CONFIDENCE` output, verify each citation against retrieved chunks.
+6. **Evaluation** — deterministic metrics (`retrieval_recall@k`, `citation_accuracy`) + LLM-as-Judge (Gemini 2.5 Flash or local llama3.1:8b) across an ablation grid.
+
+> **Known gap:** the dependency graph is built at ingestion but **not yet wired into retrieval**. Full `hybrid_retriever` currently fuses semantic + BM25 only.
 
 ## Project Structure
 
 ```
 repoqa/
   models.py                  # Shared dataclasses: FileRecord, Chunk, Summary
+  tokenizer.py               # tiktoken helpers (cl100k_base)
   ingestion/
     repo_crawler.py          # Clone & walk repository files
     ast_parser.py            # tree-sitter AST parsing (8 languages)
     ast_chunker.py           # Split code into semantic chunks (function/class/module)
     noncode_chunker.py       # Chunk markdown, config, dockerfiles, etc.
+    dep_graph_builder.py     # Build import/call dep graph (not yet used at retrieval time)
     pipeline.py              # IngestionPipeline orchestrator
   summarization/
     file_summarizer.py       # Summarize individual files from their chunks
@@ -111,27 +128,51 @@ repoqa/
     prompts.py               # LLM prompt templates
     pipeline.py              # SummarizationPipeline orchestrator
   embedding/
-    embedder.py              # OpenAI embedding wrapper
-    chroma_store.py          # ChromaDB persistence layer
-    metadata.py              # Metadata extraction for vector store
+    embedder.py              # Ollama (default) / OpenAI embedder
+    chroma_store.py          # ChromaDB persistence layer (cosine space)
+    metadata.py              # Metadata schema for vector store
     pipeline.py              # EmbeddingPipeline orchestrator
+  retrieval/
+    question_classifier.py   # LLM classifier: architecture | logic | deployment
+    strategy_router.py       # Per-question-type retrieval strategy (k, weights, filters)
+    query_expander.py        # LLM-driven keyword expansion
+    bm25_retriever.py        # BM25 keyword search over chunks
+    rrf_fusion.py            # Reciprocal Rank Fusion
+    hybrid_retriever.py      # Orchestrates classify → expand → semantic + BM25 → RRF
+  qa/
+    context_builder.py       # Pack retrieved chunks into token-budgeted context
+    prompts.py               # Type-specific ANSWER/CITATIONS/CONFIDENCE templates
+    answer_generator.py      # LLM invocation + structured-output parsing
+    citation_verifier.py     # Check each citation against retrieved chunks
+    pipeline.py              # End-to-end QAPipeline (retrieve → generate → verify)
   evaluation/
     models.py                # QAPair, EvaluationDataset dataclasses
     github_miner.py          # Mine QA pairs from GitHub issues (REST API)
-    question_classifier.py   # Regex classifier: architecture | logic | deployment
+    question_classifier.py   # Offline dataset-labeling classifier
     dataset_builder.py       # Orchestrate mining + classification + save
+    metrics.py               # retrieval_recall@k, citation_accuracy (no LLM)
+    judge.py                 # LLM-as-Judge (Gemini 2.5 Flash / local llama3.1:8b)
+  ui/
+    app.py                   # Streamlit chat UI
 config/
-  settings.py                # Pydantic-settings config (reads .env)
-  target_repos.json          # 18 target repos for dataset mining (flask, fastapi, spring-boot, gin, nest, ...)
+  settings.py                # Pydantic-settings config (reads .env) + ablation flags
+  target_repos.json          # Target repos for dataset mining
 scripts/
   ingest_repo.py             # CLI: run ingestion pipeline on a repo
   build_summaries.py         # CLI: run summarization pipeline
   build_index.py             # CLI: run embedding pipeline
   build_dataset.py           # CLI: mine CoReQA-style eval dataset from GitHub
+  curate_flask.py            # Curate a flask-specific eval subset
+  run_experiments.py         # Run full ablation grid → JSONL
+  generate_report.py         # JSONL → markdown report + CSV
+  validate_summaries.py      # Tier-1 identifier grounding check on summaries
 data/
+  flask/                     # chunks, summaries, dep graph for pallets/flask
+  chroma/                    # persistent vector store
   evaluation/
-    seed_dataset.json        # 30 curated QA pairs (10 Python, 5 Java, 8 Go, 7 TypeScript)
-    dataset.json             # Full mined dataset (from build_dataset.py)
+    seed_dataset.json        # curated QA pairs
+    dataset.json             # mined dataset (from build_dataset.py)
+  experiments/               # JSONL runs + markdown reports
 tests/
   test_ingestion.py          # Ingestion pipeline tests
 docs/
@@ -171,45 +212,82 @@ All settings are in `config/settings.py` (pydantic-settings), loaded from `.env`
 Variables are listed under `.env.example`. Rename it to `.env` to exclude it during git commit. Update keys and token accordingly in `.env` file.
 
 
-| Variable               | Default                  | Description                          |
-| ---------------------- | ------------------------ | ------------------------------------ |
-| `OPENAI_API_KEY`       | --                       | OpenAI API key                       |
-| `ANTHROPIC_API_KEY`    | --                       | Anthropic API key                    |
-| `LLM_PROVIDER`         | `openai`                 | `openai` or `anthropic`              |
-| `CHAT_MODEL`           | `gpt-4o-mini`            | LLM for summarization                |
-| `EMBEDDING_MODEL`      | `text-embedding-3-small` | Embedding model                      |
-| `CHROMA_PERSIST_DIR`   | `./data/chroma`          | ChromaDB storage path                |
-| `CHUNK_MAX_TOKENS`     | `512`                    | Max tokens per chunk                 |
-| `CHUNK_OVERLAP_TOKENS` | `64`                     | Overlap between adjacent chunks      |
-| `SUMMARY_MAX_TOKENS`   | `4096`                   | Max tokens for summarization prompts |
-| `GITHUB_TOKEN`         | --                       | GitHub PAT for dataset mining        |
+| Variable                 | Default              | Description                                                  |
+| ------------------------ | -------------------- | ------------------------------------------------------------ |
+| `LLM_PROVIDER`           | `ollama`             | `ollama` (default, local) or `openai`                        |
+| `CHAT_MODEL`             | `qwen2.5:7b`         | Generator model — `qwen2.5:7b` locally, or `gpt-4o-mini`     |
+| `OLLAMA_BASE_URL`        | `http://localhost:11434` | Ollama REST endpoint                                     |
+| `EMBEDDING_PROVIDER`     | `ollama`             | `ollama` or `openai`                                         |
+| `EMBEDDING_MODEL`        | `nomic-embed-text`   | 768-dim embedder (or `text-embedding-3-small` for OpenAI)    |
+| `OPENAI_API_KEY`         | --                   | OpenAI API key (only if using OpenAI providers)              |
+| `ANTHROPIC_API_KEY`      | --                   | Anthropic API key (optional)                                 |
+| `CHROMA_PERSIST_DIR`     | `./data/chroma`      | ChromaDB storage path                                        |
+| `CHUNK_MAX_TOKENS`       | `512`                | Max tokens per chunk                                         |
+| `CHUNK_OVERLAP_TOKENS`   | `64`                 | Overlap between adjacent chunks                              |
+| `SUMMARY_MAX_TOKENS`     | `4096`               | Max tokens for summarization prompts                         |
+| `GITHUB_TOKEN`           | --                   | GitHub PAT for dataset mining                                |
+| `ENABLE_SUMMARIES`       | `true`               | Ablation: include summaries in retrieval                     |
+| `ENABLE_HYBRID`          | `true`               | Ablation: BM25 + semantic RRF fusion                         |
+| `ENABLE_QUERY_EXPANSION` | `true`               | Ablation: LLM query expansion                                |
+| `ENABLE_ROUTING`         | `true`               | Ablation: question-type-aware strategy routing               |
+| `ENABLE_RETRIEVAL`       | `true`               | Ablation: retrieval enabled (else generator answers from question only) |
+| `JUDGE_PROVIDER`         | `gemini`             | `gemini` (20 req/day free) or `ollama` (local)               |
+| `JUDGE_MODEL`            | `gemini-2.5-flash`   | Gemini judge model                                           |
+| `JUDGE_MODEL_LOCAL`      | `llama3.1:8b`        | Fallback judge model when `JUDGE_PROVIDER=ollama`            |
+| `GEMINI_API_KEY`         | --                   | Gemini API key (only if `JUDGE_PROVIDER=gemini`)             |
+| `JUDGE_RUNS_PER_QUESTION`| `3`                  | Judge invocations per answer for mean ± std                  |
 
 
 ## Quick Start
 
 ```bash
-# Install
-pip install -e .
+# Install (uv manages venv + deps)
+uv sync
 
-# Copy and fill .env
+# Copy and fill .env (only needed if using OpenAI/Anthropic/Gemini)
 cp .env.example .env
 
-# Ingest a repo
-python scripts/ingest_repo.py --repo /path/to/repo
+# Pull local models (if using Ollama defaults)
+ollama pull qwen2.5:7b
+ollama pull nomic-embed-text
 
-# Build summaries
-python scripts/build_summaries.py --chunks data/chunks.json
+# 1. Ingest a repo
+uv run scripts/ingest_repo.py --repo-path ./flask --output data/flask/transformers_chunks.json
 
-# Build embeddings index
-python scripts/build_index.py --chunks data/chunks.json --summaries data/summaries.json
+# 2. Build summaries
+uv run scripts/build_summaries.py --chunks data/flask/transformers_chunks.json --repo-root ./flask --output data/flask/summaries.json
 
-# Mine evaluation dataset from GitHub
-python scripts/build_dataset.py --output data/evaluation/dataset.json
+# 3. Embed + index
+uv run scripts/build_index.py --chunks data/flask/transformers_chunks.json --summaries data/flask/summaries.json --repo-name pallets/flask
+
+# 4. Mine evaluation dataset from GitHub (optional)
+uv run scripts/build_dataset.py --output data/evaluation/dataset.json
+
+# 5. Validate summaries — Tier-1 identifier-grounding check
+uv run scripts/validate_summaries.py \
+  --summaries data/flask/summaries.json \
+  --repo-root ./flask \
+  --output data/flask/summary_validation.json
+
+# 6. Run ablation experiments
+uv run scripts/run_experiments.py \
+  --chunks data/flask/transformers_chunks.json \
+  --repo-root ./flask \
+  --dataset data/evaluation/seed_dataset.json \
+  --output data/experiments/run_$(date +%Y-%m-%d).jsonl
+
+# 7. Generate markdown report from JSONL
+uv run scripts/generate_report.py --jsonl data/experiments/run_*.jsonl
+
+# 8. Launch the chat UI
+uv run streamlit run repoqa/ui/app.py
 ```
 
 ## Requirements
 
-- Python >= 3.11
+- Python >= 3.11 (project is tested with 3.13/3.14)
+- [uv](https://docs.astral.sh/uv/) for dependency management
+- [Ollama](https://ollama.com) if using local generator/embedder (default)
 - See `pyproject.toml` for full dependency list
-- Key deps: tree-sitter, chromadb, langchain, openai/anthropic, tiktoken, pydantic-settings, gitpython
+- Key deps: tree-sitter + 8 grammar packages, chromadb, langchain, openai/anthropic, tiktoken, pydantic-settings, rank-bm25, streamlit
 
