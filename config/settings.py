@@ -41,6 +41,24 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
+    # ── Ablation switches (experiment mode) ──
+    # All default True = full RepoQA. Flip individually via .env to run ablations.
+    enable_summaries: bool = Field(default=True, alias="ENABLE_SUMMARIES")
+    enable_hybrid: bool = Field(default=True, alias="ENABLE_HYBRID")
+    enable_query_expansion: bool = Field(default=True, alias="ENABLE_QUERY_EXPANSION")
+    enable_routing: bool = Field(default=True, alias="ENABLE_ROUTING")
+    enable_retrieval: bool = Field(default=True, alias="ENABLE_RETRIEVAL")
+
+    # ── Evaluation / judge ──
+    # judge_provider: "gemini" (API, capped at 20 req/day on free tier) or
+    # "ollama" (local, unlimited but slower & weaker). Use ollama when the
+    # Gemini quota is exhausted.
+    judge_provider: str = Field(default="gemini", alias="JUDGE_PROVIDER")
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    judge_model: str = Field(default="gemini-2.5-flash", alias="JUDGE_MODEL")
+    judge_model_local: str = Field(default="llama3.1:8b", alias="JUDGE_MODEL_LOCAL")
+    judge_runs_per_question: int = Field(default=3, alias="JUDGE_RUNS_PER_QUESTION")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

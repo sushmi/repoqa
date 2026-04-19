@@ -15,7 +15,11 @@ build/
 flask/
 
 
-# AI discussions
+# AI discussions 
 .claude/
+CLAUDE.md
+
+
+# preparation directory
 preps/
 

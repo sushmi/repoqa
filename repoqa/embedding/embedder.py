@@ -52,12 +52,10 @@ class Embedder:
         if batch_size is None:
             batch_size = 10 if self.provider == "ollama" else 100
 
-        if self.provider == "ollama":
-            # Truncate by characters — ~4 chars per token, stay well under 8192 context
-            max_chars = self._max_tokens * 4
-            safe_texts = [t[:max_chars] for t in texts]
-        else:
-            safe_texts = [truncate_to_limit(t, self._max_tokens) for t in texts]
+        # Token-based truncation for both providers. Char-based truncation is
+        # unsafe for code (2-3 chars/token, not 4) and for LLM-expanded queries
+        # that can blow past the embed model's context limit.
+        safe_texts = [truncate_to_limit(t, self._max_tokens) for t in texts]
 
         all_embeddings: list[list[float]] = []
         batches = [safe_texts[i: i + batch_size] for i in range(0, len(safe_texts), batch_size)]
