@@ -10,6 +10,8 @@ import logging
 
 from langchain_core.prompts import ChatPromptTemplate
 
+from repoqa.tokenizer import TOKEN_COUNTER
+
 logger = logging.getLogger(__name__)
 
 EXPAND_PROMPT = ChatPromptTemplate.from_messages(
@@ -33,12 +35,14 @@ class QueryExpander:
     """Expands a developer question with additional search terms."""
 
     def __init__(self, llm) -> None:
-        self._chain = EXPAND_PROMPT | llm
+        self._llm = llm
 
     def expand(self, question: str) -> str:
         """Return the original question + expanded terms."""
-        response = self._chain.invoke({"question": question})
+        messages = EXPAND_PROMPT.format_messages(question=question)
+        response = self._llm.invoke(messages)
         raw = response.content if hasattr(response, "content") else str(response)
+        TOKEN_COUNTER.log_llm_call("query_expander", messages, raw)
         expanded_terms = raw.strip()
         logger.debug("Query expansion: '%s' → '%s'", question, expanded_terms)
         return f"{question} {expanded_terms}"

@@ -9,7 +9,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from repoqa.models import Chunk, Summary
 from repoqa.summarization.prompts import PROJECT_SUMMARY_PROMPT
-from repoqa.tokenizer import count_tokens as _count_tokens
+from repoqa.tokenizer import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class ProjectSummarizer:
                 selected: list[str] = []
                 used = 0
                 for line in lines:
-                    t = _count_tokens(line)
+                    t = TOKEN_COUNTER.count(line)
                     if used + t > 500:
                         break
                     selected.append(line)
@@ -59,29 +59,29 @@ class ProjectSummarizer:
             path=".",
             content=content,
             source_ids=source_ids,
-            token_count=_count_tokens(content),
+            token_count=TOKEN_COUNTER.count(content),
         )
 
     @retry(wait=wait_exponential(multiplier=1, min=2, max=30), stop=stop_after_attempt(3))
     def _invoke_with_retry(
         self, repo_name: str, readme_excerpt: str, dir_summaries_bullet_list: str
     ) -> str:
-        chain = PROJECT_SUMMARY_PROMPT | self.llm
-        response = chain.invoke(
-            {
-                "repo_name": repo_name,
-                "readme_excerpt": readme_excerpt,
-                "dir_summaries_bullet_list": dir_summaries_bullet_list,
-            }
+        messages = PROJECT_SUMMARY_PROMPT.format_messages(
+            repo_name=repo_name,
+            readme_excerpt=readme_excerpt,
+            dir_summaries_bullet_list=dir_summaries_bullet_list,
         )
-        return response.content if hasattr(response, "content") else str(response)
+        response = self.llm.invoke(messages)
+        text = response.content if hasattr(response, "content") else str(response)
+        TOKEN_COUNTER.log_llm_call(f"project_summary:{repo_name}", messages, text)
+        return text
 
     def _build_dir_list(self, dir_summaries: list[Summary]) -> str:
         lines: list[str] = []
         used_tokens = 0
         for s in dir_summaries:
             bullet = f"- {s.path}/: {s.content}"
-            tokens = _count_tokens(bullet)
+            tokens = TOKEN_COUNTER.count(bullet)
             if used_tokens + tokens > self.max_input_tokens - 500:  # reserve space
                 lines.append(f"- {s.path}/: <omitted>")
             else:

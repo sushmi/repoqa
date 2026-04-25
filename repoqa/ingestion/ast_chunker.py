@@ -12,7 +12,7 @@ import logging
 
 from repoqa.models import Chunk, FileRecord
 from repoqa.ingestion.ast_parser import ASTParserRegistry
-from repoqa.tokenizer import count_tokens as _count_tokens
+from repoqa.tokenizer import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ class ASTChunker:
         text = ASTParserRegistry.get_node_text(node, source_bytes)
         start_line = node.start_point[0] + 1
         end_line = node.end_point[0] + 1
-        token_count = _count_tokens(text)
+        token_count = TOKEN_COUNTER.count(text)
 
         # Mark these lines as covered
         covered_lines.update(range(start_line, end_line + 1))
@@ -222,7 +222,7 @@ class ASTChunker:
             child_text = ASTParserRegistry.get_node_text(child, source_bytes)
             child_lines = child_text.splitlines()
             prospective = (prev_tail + "\n" if prev_tail else "") + child_text
-            if _count_tokens(prospective) > self.max_tokens and buffer_lines:
+            if TOKEN_COUNTER.count(prospective) > self.max_tokens and buffer_lines:
                 # Flush buffer as a chunk
                 content = "\n".join(buffer_lines)
                 start_line = buffer_start
@@ -236,7 +236,7 @@ class ASTChunker:
                         start_line=start_line,
                         end_line=end_line,
                         symbol_name=None,
-                        token_count=_count_tokens(content),
+                        token_count=TOKEN_COUNTER.count(content),
                     )
                 )
                 # Start new buffer with overlap from previous tail
@@ -248,11 +248,11 @@ class ASTChunker:
 
             # Keep the last ~overlap_tokens worth of text as context for the next chunk
             tail_text = "\n".join(buffer_lines)
-            tail_tokens = _count_tokens(tail_text)
+            tail_tokens = TOKEN_COUNTER.count(tail_text)
             if tail_tokens > self.overlap_tokens:
                 # Trim to last overlap_tokens tokens worth of lines
                 tail_lines = buffer_lines
-                while _count_tokens("\n".join(tail_lines)) > self.overlap_tokens and len(tail_lines) > 1:
+                while TOKEN_COUNTER.count("\n".join(tail_lines)) > self.overlap_tokens and len(tail_lines) > 1:
                     tail_lines = tail_lines[1:]
                 prev_tail = "\n".join(tail_lines)
             else:
@@ -272,7 +272,7 @@ class ASTChunker:
                     start_line=start_line,
                     end_line=end_line,
                     symbol_name=None,
-                    token_count=_count_tokens(content),
+                    token_count=TOKEN_COUNTER.count(content),
                 )
             )
 
@@ -337,9 +337,9 @@ class ASTChunker:
             batch: list[str] = []
             token_count = 0
             j = i
-            while j < len(lines) and token_count + _count_tokens(lines[j]) <= self.max_tokens:
+            while j < len(lines) and token_count + TOKEN_COUNTER.count(lines[j]) <= self.max_tokens:
                 batch.append(lines[j])
-                token_count += _count_tokens(lines[j])
+                token_count += TOKEN_COUNTER.count(lines[j])
                 j += 1
             if not batch:
                 # Single line exceeds max_tokens — include it anyway
@@ -358,7 +358,7 @@ class ASTChunker:
                     start_line=abs_start,
                     end_line=abs_end,
                     symbol_name=None,
-                    token_count=_count_tokens(chunk_content),
+                    token_count=TOKEN_COUNTER.count(chunk_content),
                 )
             )
             # Advance with overlap

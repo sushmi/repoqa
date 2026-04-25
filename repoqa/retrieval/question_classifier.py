@@ -10,6 +10,8 @@ import logging
 
 from langchain_core.prompts import ChatPromptTemplate
 
+from repoqa.tokenizer import TOKEN_COUNTER
+
 logger = logging.getLogger(__name__)
 
 QUESTION_TYPES = ("architecture", "logic", "deployment")
@@ -45,12 +47,14 @@ class QuestionClassifier:
     """Classifies a developer question into architecture / logic / deployment."""
 
     def __init__(self, llm) -> None:
-        self._chain = CLASSIFY_PROMPT | llm
+        self._llm = llm
 
     def classify(self, question: str) -> str:
         """Return one of: 'architecture', 'logic', 'deployment'."""
-        response = self._chain.invoke({"question": question})
+        messages = CLASSIFY_PROMPT.format_messages(question=question)
+        response = self._llm.invoke(messages)
         raw = response.content if hasattr(response, "content") else str(response)
+        TOKEN_COUNTER.log_llm_call("question_classifier", messages, raw)
         label = raw.strip().lower().split()[0].rstrip(".,;:")
 
         if label not in QUESTION_TYPES:

@@ -19,6 +19,7 @@ from repoqa.models import Chunk
 from repoqa.qa.context_builder import build_context
 from repoqa.qa.prompts import build_prompt
 from repoqa.qa.citation_verifier import verify_citations, VerifiedAnswer
+from repoqa.tokenizer import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +96,13 @@ class AnswerGenerator:
         stop=stop_after_attempt(3),
     )
     def _invoke_with_retry(self, prompt, question, context, num_chunks) -> str:
-        chain = prompt | self.llm
-        response = chain.invoke(
-            {
-                "question": question,
-                "context": context,
-                "num_chunks": num_chunks,
-            }
+        messages = prompt.format_messages(
+            question=question, context=context, num_chunks=num_chunks
         )
-        return response.content if hasattr(response, "content") else str(response)
+        response = self.llm.invoke(messages)
+        text = response.content if hasattr(response, "content") else str(response)
+        TOKEN_COUNTER.log_llm_call("answer_generator", messages, text)
+        return text
 
     @staticmethod
     def _parse_structured_output(raw: str) -> tuple[str, str]:

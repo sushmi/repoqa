@@ -334,6 +334,45 @@ This top-down ordering mirrors how a human senior developer would explain code: 
 
 The LLM generates a structured answer with: (a) a brief overview, (b) detailed explanation with code snippets, and (c) file references. Post-generation, a \textit{citation verifier} checks that every cited file path and function name exists in the repository. Invalid citations are flagged or removed, mitigating hallucination.
 
+\subsection{Cost Accounting}
+\label{sec:cost}
+
+Because RepoQA is intended to be re-implementable on either local (Ollama) or commercial (OpenAI / Anthropic / Google) backends, we report cost in two phases that are billed differently. All token counts are obtained from the unified \texttt{TokenCounter} singleton, which wraps the Qwen2.5-7B tokenizer and exposes per-call instrumentation at every LLM site (classifier, query expander, three summarizers, answer generator). This guarantees that chunk-level token budgets and prompt-level token budgets use the same vocabulary.
+
+\paragraph{Offline (once per repository).} Two LLM-driven passes run at indexing time: (i) hierarchical summarization (file $\rightarrow$ directory $\rightarrow$ project), billed as chat input \emph{and} output, and (ii) embedding of all chunks and summaries, billed as input only. We define
+\begin{align}
+\$_{\text{offline}}\;=\;& T_{\text{emb}} \cdot p_{\text{emb}} \nonumber \\
+&+ T_{\text{summ}}^{\text{in}}\cdot p_{\text{chat}}^{\text{in}}
++ T_{\text{summ}}^{\text{out}}\cdot p_{\text{chat}}^{\text{out}}.
+\end{align}
+
+\paragraph{Online (per question).} Three LLM calls fire at query time: question classification, query expansion, and structured answer generation. With a context budget of 4{,}000 tokens, the average per-question footprint on the \texttt{pallets/flask} development set is $\approx 4{,}300$ input and $\approx 230$ output tokens.
+
+\paragraph{Per-provider cost (April 2026).}
+Table~\ref{tab:cost-providers} reports current public pricing for the chat and embedding tiers we evaluate, together with the projected one-time offline cost and per-question online cost on the flask development repository ($\approx 80$ files, $\approx 5{,}000$ chunks, $\approx 110$ summaries; offline footprint $\approx 350{,}000$ embedding tokens, $\approx 280{,}000$ summarization input, $\approx 20{,}000$ summarization output).
+
+\begin{table*}[h]
+\centering
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Provider} & \textbf{Chat in} & \textbf{Chat out} & \textbf{Emb} & \textbf{Offline} & \textbf{Online} \\
+                  & (\$/1M) & (\$/1M) & (\$/1M) & (\$, one-time) & (\$/question) \\
+\midrule
+OpenAI GPT-4o-mini + emb-3-small        & 0.15 & 0.60  & 0.020 & 0.06 & 0.0008 \\
+OpenAI GPT-4o + emb-3-large             & 2.50 & 10.00 & 0.130 & 0.95 & 0.0131 \\
+Anthropic Claude Haiku 4.5 + Voyage-3-lite  & 1.00 & 5.00  & 0.020 & 0.39 & 0.0055 \\
+Anthropic Claude Sonnet 4.6 + Voyage-3      & 3.00 & 15.00 & 0.060 & 1.16 & 0.0164 \\
+Google Gemini 2.5 Flash + emb-004           & 0.30 & 2.50  & 0.025 & 0.14 & 0.0019 \\
+Local Qwen 2.5 7B + nomic-embed (Ollama)    & 0    & 0     & 0     & 0    & 0      \\
+\bottomrule
+\end{tabular}
+\caption{Per-provider cost projection for RepoQA on the \texttt{pallets/flask} development set. Anthropic pairs with Voyage AI for embeddings (no first-party text embedder). Offline cost amortizes across all later questions; online cost is paid per question.}
+\label{tab:cost-providers}
+\end{table*}
+
+\paragraph{Implications for backend choice.} Three observations follow directly from Table~\ref{tab:cost-providers}. (a)~The summarization pass dominates offline cost across every paid backend, because chat input/output is two orders of magnitude more expensive than embeddings; ablating the summarization layer therefore has a disproportionate effect on \emph{cost} relative to its effect on retrieval recall. (b)~Per-question cost is small in absolute terms ($\le$~\$0.02 for the most expensive configuration), so for evaluation budgets of $\le 1{,}000$ questions the offline phase dominates the total spend---a flask-scale offline run on Claude Haiku ($\$0.39$) is amortized after roughly 70 questions. (c)~Local execution via Ollama eliminates monetary cost but shifts it to GPU/RAM time, which we measure separately and do not include here.
+
 % ============================================================
 % 4. DATA
 % ============================================================

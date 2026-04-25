@@ -8,7 +8,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from repoqa.models import Chunk, FileRecord, Summary
 from repoqa.summarization.prompts import FILE_SUMMARY_PROMPT
-from repoqa.tokenizer import count_tokens as _count_tokens
+from repoqa.tokenizer import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -49,21 +49,19 @@ class FileSummarizer:
             path=file_record.repo_path,
             content=content,
             source_ids=source_ids,
-            token_count=_count_tokens(content),
+            token_count=TOKEN_COUNTER.count(content),
             language=file_record.language,
         )
 
     @retry(wait=wait_exponential(multiplier=1, min=2, max=30), stop=stop_after_attempt(3))
     def _invoke_with_retry(self, file_path: str, language: str, code_excerpts: str) -> str:
-        chain = FILE_SUMMARY_PROMPT | self.llm
-        response = chain.invoke(
-            {
-                "file_path": file_path,
-                "language": language,
-                "code_excerpts": code_excerpts,
-            }
+        messages = FILE_SUMMARY_PROMPT.format_messages(
+            file_path=file_path, language=language, code_excerpts=code_excerpts
         )
-        return response.content if hasattr(response, "content") else str(response)
+        response = self.llm.invoke(messages)
+        text = response.content if hasattr(response, "content") else str(response)
+        TOKEN_COUNTER.log_llm_call(f"file_summary:{file_path}", messages, text)
+        return text
 
     def _select_representative_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
         """Greedily select chunks by priority until the token budget is exhausted."""

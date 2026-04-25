@@ -43,34 +43,44 @@
 \newlabel{sec:retrieval}{{3.2}{3}{Hybrid Retrieval with Question-Type Routing}{subsection.3.2}{}}
 \@writefile{toc}{\contentsline {paragraph}{Question Classification.}{3}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Retrieval Strategy Routing.}{3}{section*.8}\protected@file@percent }
-\citation{chen2025coreqa}
-\citation{peng2025sweqa}
-\citation{chen2025coreqa}
 \@writefile{toc}{\contentsline {paragraph}{Hybrid Fusion.}{4}{section*.9}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Query Expansion.}{4}{section*.10}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Structured Prompt Generation}{4}{subsection.3.3}\protected@file@percent }
 \newlabel{sec:prompts}{{3.3}{4}{Structured Prompt Generation}{subsection.3.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Answer Generation \& Grounding Verification}{4}{subsection.3.4}\protected@file@percent }
 \newlabel{sec:generation}{{3.4}{4}{Answer Generation \& Grounding Verification}{subsection.3.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Datasets}{4}{section.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Primary Evaluation: CoReQA}{4}{subsection.4.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Secondary Evaluation: SWE-QA}{4}{subsection.4.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Development Repositories}{4}{subsection.4.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Data Preprocessing}{4}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Cost Accounting}{4}{subsection.3.5}\protected@file@percent }
+\newlabel{sec:cost}{{3.5}{4}{Cost Accounting}{subsection.3.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Offline (once per repository).}{4}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Online (per question).}{4}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Per-provider cost (April 2026).}{4}{section*.13}\protected@file@percent }
 \citation{chen2025coreqa}
+\citation{peng2025sweqa}
 \citation{chen2025coreqa}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Per-provider cost projection for RepoQA on the \texttt  {pallets/flask} development set. Anthropic pairs with Voyage AI for embeddings (no first-party text embedder). Offline cost amortizes across all later questions; online cost is paid per question.}}{5}{table.caption.14}\protected@file@percent }
+\newlabel{tab:cost-providers}{{1}{5}{Per-provider cost projection for RepoQA on the \texttt {pallets/flask} development set. Anthropic pairs with Voyage AI for embeddings (no first-party text embedder). Offline cost amortizes across all later questions; online cost is paid per question}{table.caption.14}{}}
+\@writefile{toc}{\contentsline {paragraph}{Implications for backend choice.}{5}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Datasets}{5}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Primary Evaluation: CoReQA}{5}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Secondary Evaluation: SWE-QA}{5}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Development Repositories}{5}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Data Preprocessing}{5}{subsection.4.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Evaluation Metrics}{5}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Experiment Design}{5}{section.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Baselines}{5}{subsection.6.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Ablation Study (RQ3)}{5}{subsection.6.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Expected Results}{5}{subsection.6.3}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Ablation configurations for RQ3.}}{5}{table.caption.11}\protected@file@percent }
-\newlabel{tab:ablation}{{1}{5}{Ablation configurations for RQ3}{table.caption.11}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Expected performance ranges on CoReQA (Qwen-7B as generator). ``Reported'' values from \citet  {chen2025coreqa}.}}{5}{table.caption.12}\protected@file@percent }
-\newlabel{tab:expected}{{2}{5}{Expected performance ranges on CoReQA (Qwen-7B as generator). ``Reported'' values from \citet {chen2025coreqa}}{table.caption.12}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{5}{section.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}How Data and Approach Address the RQs}{5}{subsection.7.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Broader Implications}{5}{subsection.7.2}\protected@file@percent }
+\citation{chen2025coreqa}
+\citation{chen2025coreqa}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Experiment Design}{6}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Baselines}{6}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Ablation Study (RQ3)}{6}{subsection.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Ablation configurations for RQ3.}}{6}{table.caption.16}\protected@file@percent }
+\newlabel{tab:ablation}{{2}{6}{Ablation configurations for RQ3}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Expected Results}{6}{subsection.6.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Expected performance ranges on CoReQA (Qwen-7B as generator). ``Reported'' values from \citet  {chen2025coreqa}.}}{6}{table.caption.17}\protected@file@percent }
+\newlabel{tab:expected}{{3}{6}{Expected performance ranges on CoReQA (Qwen-7B as generator). ``Reported'' values from \citet {chen2025coreqa}}{table.caption.17}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{6}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}How Data and Approach Address the RQs}{6}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Broader Implications}{6}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Summary of Progress}{6}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Completed}{6}{subsection.8.1}\protected@file@percent }
 \bibdata{references}
 \bibcite{austin2021program}{{1}{2021}{{Austin et~al.}}{{Austin, Odena, Nye, Bosma, Michalewski, Dohan, Jiang, Cai, Terry, Le, and Sutskever}}}
 \bibcite{bairi2024codeplan}{{2}{2024}{{Bairi et~al.}}{{Bairi, Sonwane, Kanade, Iyer, Parthasarathy, Rajamani, Ashok, and Shet}}}
@@ -82,19 +92,17 @@
 \bibcite{gao2024rag}{{8}{2024}{{Gao et~al.}}{{Gao, Xiong, Gao, Jia, Pan, Bi, Dai, Sun, Wang, and Wang}}}
 \bibcite{gistify2025}{{9}{2025}{{Gistify Authors}}{{}}}
 \bibcite{jimenez2024swebench}{{10}{2024}{{Jimenez et~al.}}{{Jimenez, Yang, Wettig, Yao, Pei, Press, and Narasimhan}}}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Summary of Progress}{6}{section.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Completed}{6}{subsection.8.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Remaining Work}{6}{subsection.8.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Risks and Mitigation}{6}{subsection.8.3}\protected@file@percent }
 \bibcite{lee2022cs1qa}{{11}{2022}{{Lee et~al.}}{{Lee, Seonwoo, and Oh}}}
 \bibcite{liu2021codeqa}{{12}{2021}{{Liu and Wan}}{{}}}
 \bibcite{peng2025sweqa}{{13}{2025}{{Peng et~al.}}{{}}}
 \bibcite{strich2024improving}{{14}{2024}{{Strich et~al.}}{{Strich, Schneider, Nikishina, and Biemann}}}
 \bibcite{tufek2025hierarchical}{{15}{2025}{{Tufek et~al.}}{{}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Remaining Work}{7}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Risks and Mitigation}{7}{subsection.8.3}\protected@file@percent }
 \bibcite{wang2025coderag}{{16}{2025}{{Wang et~al.}}{{Wang, Asai, Yu, Xu, Xie, Neubig, and Fried}}}
 \bibcite{xia2018measuring}{{17}{2018}{{Xia et~al.}}{{Xia, Bao, Lo, Xing, Hassan, and Li}}}
 \bibcite{zhang2023repocoder}{{18}{2023}{{Zhang et~al.}}{{Zhang, Chen, Zhang, Keung, Liu, Zan, Mao, Lou, and Chen}}}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Architecture of the RepoQA system. Stage~1 performs offline indexing with hierarchical summarization. Stage~2 retrieves relevant context using hybrid search with question-type routing. Stage~3 generates grounded explanations with citation verification.}}{8}{figure.caption.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Architecture of the RepoQA system. Stage~1 performs offline indexing with hierarchical summarization. Stage~2 retrieves relevant context using hybrid search with question-type routing. Stage~3 generates grounded explanations with citation verification.}}{9}{figure.caption.1}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{fig:architecture}{{1}{8}{Architecture of the RepoQA system. Stage~1 performs offline indexing with hierarchical summarization. Stage~2 retrieves relevant context using hybrid search with question-type routing. Stage~3 generates grounded explanations with citation verification}{figure.caption.1}{}}
-\gdef \@abspage@last{8}
+\newlabel{fig:architecture}{{1}{9}{Architecture of the RepoQA system. Stage~1 performs offline indexing with hierarchical summarization. Stage~2 retrieves relevant context using hybrid search with question-type routing. Stage~3 generates grounded explanations with citation verification}{figure.caption.1}{}}
+\gdef \@abspage@last{9}

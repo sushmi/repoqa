@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 
 from repoqa.models import Chunk, FileRecord
-from repoqa.tokenizer import count_tokens as _count_tokens
+from repoqa.tokenizer import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -87,13 +87,13 @@ class NonCodeChunker:
             return self._chunk_text(file_record)
 
         whole = json.dumps(data, indent=2)
-        if _count_tokens(whole) <= self.max_tokens:
+        if TOKEN_COUNTER.count(whole) <= self.max_tokens:
             return [self._make_chunk(file_record, whole, 1, len(whole.splitlines()), "config")]
 
         chunks: list[Chunk] = []
         for key, value in data.items():
             section = json.dumps({key: value}, indent=2)
-            if _count_tokens(section) > self.max_tokens:
+            if TOKEN_COUNTER.count(section) > self.max_tokens:
                 # Truncate deeply nested objects
                 section = json.dumps({key: str(value)[:200]}, indent=2)
             chunks.append(
@@ -111,13 +111,13 @@ class NonCodeChunker:
             return self._chunk_text(file_record)
 
         whole = yaml.dump(data, default_flow_style=False)
-        if _count_tokens(whole) <= self.max_tokens:
+        if TOKEN_COUNTER.count(whole) <= self.max_tokens:
             return [self._make_chunk(file_record, whole, 1, len(whole.splitlines()), "config")]
 
         chunks: list[Chunk] = []
         for key, value in data.items():
             section = yaml.dump({key: value}, default_flow_style=False)
-            if _count_tokens(section) > self.max_tokens:
+            if TOKEN_COUNTER.count(section) > self.max_tokens:
                 section = f"{key}: <truncated>"
             chunks.append(
                 self._make_chunk(file_record, section, 1, len(section.splitlines()), "config")
@@ -134,14 +134,14 @@ class NonCodeChunker:
             return self._chunk_text(file_record)
 
         whole = file_record.raw_content
-        if _count_tokens(whole) <= self.max_tokens:
+        if TOKEN_COUNTER.count(whole) <= self.max_tokens:
             return [self._make_chunk(file_record, whole, 1, len(whole.splitlines()), "config")]
 
         # Split by top-level keys (TOML sections)
         chunks: list[Chunk] = []
         for key, value in data.items():
             section = f"[{key}]\n{json.dumps(value, indent=2)}"
-            if _count_tokens(section) > self.max_tokens:
+            if TOKEN_COUNTER.count(section) > self.max_tokens:
                 section = f"[{key}]\n# <truncated>"
             chunks.append(
                 self._make_chunk(file_record, section, 1, len(section.splitlines()), "config")
@@ -177,9 +177,9 @@ class NonCodeChunker:
             batch: list[str] = []
             token_count = 0
             j = i
-            while j < len(lines) and token_count + _count_tokens(lines[j]) <= self.max_tokens:
+            while j < len(lines) and token_count + TOKEN_COUNTER.count(lines[j]) <= self.max_tokens:
                 batch.append(lines[j])
-                token_count += _count_tokens(lines[j])
+                token_count += TOKEN_COUNTER.count(lines[j])
                 j += 1
             if not batch:
                 batch = [lines[i]]
@@ -212,5 +212,5 @@ class NonCodeChunker:
             start_line=start_line,
             end_line=end_line,
             symbol_name=None,
-            token_count=_count_tokens(content),
+            token_count=TOKEN_COUNTER.count(content),
         )

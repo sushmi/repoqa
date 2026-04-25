@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from repoqa.models import Chunk
-from repoqa.tokenizer import count_tokens, truncate_to_limit
+from repoqa.tokenizer import TOKEN_COUNTER
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +44,11 @@ def build_context(
         fence_lang = chunk.language if chunk.language not in ("", "unknown") else ""
         block = f"{header}\n```{fence_lang}\n{chunk.content}\n```"
 
-        block_tokens = count_tokens(block)
+        block_tokens = TOKEN_COUNTER.count(block)
 
         # If this one chunk alone exceeds the whole budget, truncate its content
         if block_tokens > max_tokens and not included:
-            truncated = truncate_to_limit(chunk.content, max_tokens - 50)
+            truncated = TOKEN_COUNTER.truncate(chunk.content, max_tokens - 50)
             block = f"{header}\n```{fence_lang}\n{truncated}\n[...truncated...]\n```"
             blocks.append(block)
             included.append(chunk)

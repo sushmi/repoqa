@@ -16,10 +16,11 @@ This document is the contributor guide and development log for RepoQA. It explai
 7. [CLI Scripts](#7-cli-scripts)
 8. [Tests](#8-tests)
 9. [Environment Setup](#9-environment-setup)
-10. [Phase 4 — Retrieval](#11-phase-4--retrieval-stage-2-of-the-paper)
-11. [Phase 5 — QA Generation](#12-phase-5--qa-generation-stage-3-of-the-paper)
-12. [Evaluation & Experiments](#13-evaluation--experiments)
-13. [What Comes Next](#14-what-comes-next)
+10. [Token Accounting — `TokenCounter`](#10-token-accounting--tokencounter)
+11. [Phase 4 — Retrieval](#11-phase-4--retrieval-stage-2-of-the-paper)
+12. [Phase 5 — QA Generation](#12-phase-5--qa-generation-stage-3-of-the-paper)
+13. [Evaluation & Experiments](#13-evaluation--experiments)
+14. [What Comes Next](#14-what-comes-next)
 
 ---
 
@@ -172,7 +173,7 @@ repoqa/
 4. Collect all source lines not covered by any structural node (imports, global constants, module-level code) and emit them as `"module"` chunks.
 5. If the parser is unavailable or fails, fall back to a simple sliding-window line splitter.
 
-**Token counting:** Uses `tiktoken cl100k_base` throughout. This tokenizer is used by GPT-4o and `text-embedding-3-small`, so a chunk that fits within `max_tokens` here will also fit in the embedding model's 8,191-token input limit.
+**Token counting:** All token counting in the codebase goes through the **`TokenCounter`** singleton (`TOKEN_COUNTER`) defined in `repoqa/tokenizer.py`, which wraps the **Qwen2.5-7B** tokenizer. This is the same tokenizer used by the default generator (`qwen2.5:7b` via Ollama), so chunk-level `token_count` values are directly comparable to the token budget seen at generation time. See section 10 for the full API.
 
 **Why overlap:** When a large node is split into multiple sub-chunks, the last few lines of the previous chunk are prepended to the next. This ensures the LLM has enough surrounding context to understand a chunk even when it is retrieved in isolation.
 
@@ -511,6 +512,45 @@ cp .env.example .env
 
 ---
 
+## 10. Token Accounting — `TokenCounter`
+
+**File:** `repoqa/tokenizer.py`
+
+**Why:** Multiple stages need to count tokens (chunkers, summarizers, context builder, embedder), and every LLM call needs a cost record (see the README's "Context Window Size as a Cost Proxy" section). Spreading `tiktoken`/`AutoTokenizer` calls across modules made it easy for two callers to count tokens with two different tokenizers — silent drift that broke the "chunk size ≈ generator prompt size" invariant.
+
+`TokenCounter` consolidates all of this behind one singleton (`TOKEN_COUNTER`), backed by the Qwen2.5-7B tokenizer (the same model used by the default generator).
+
+**API:**
+
+| Method | Purpose |
+| --- | --- |
+| `TOKEN_COUNTER.count(text)` | Token count for a string |
+| `TOKEN_COUNTER.count_messages(prompt)` | Token count for a string or a list of LangChain messages / dicts |
+| `TOKEN_COUNTER.truncate(text, n)` | Truncate to ≤ n tokens (used by the embedder to stay under provider input limits and by the context builder when one chunk alone exceeds budget) |
+| `TOKEN_COUNTER.log_llm_call(label, prompt, response)` | Count input + output tokens, emit one INFO line on the `repoqa.llm` logger, and return `{"input_tokens", "output_tokens", "total_tokens"}` so callers can persist into experiment JSONL |
+
+**Wired call sites:**
+
+| Stage | File | Method used |
+| --- | --- | --- |
+| Ingestion | `ingestion/ast_chunker.py`, `ingestion/noncode_chunker.py` | `count` |
+| Embedding | `embedding/embedder.py` | `truncate` |
+| Summarization | `summarization/{file,dir,project}_summarizer.py` | `count` + `log_llm_call` |
+| Retrieval | `retrieval/question_classifier.py`, `retrieval/query_expander.py` | `log_llm_call` |
+| QA | `qa/context_builder.py`, `qa/answer_generator.py` | `count`, `truncate`, `log_llm_call` |
+
+**Contributor rule:** any new code that needs to count, truncate, or log LLM tokens MUST go through `TOKEN_COUNTER` — do not import a tokenizer directly. This guarantees that chunk-level token counts, embedder truncation, retrieval context budgets, and per-call cost logs all use the same vocabulary, so figures stay comparable across stages and across ablation runs.
+
+**Sample log output (logger `repoqa.llm`, level `INFO`):**
+
+```
+repoqa.llm INFO: LLM call [question_classifier]: input=178 output=1 total=179 tokens
+repoqa.llm INFO: LLM call [query_expander]: input=82 output=24 total=106 tokens
+repoqa.llm INFO: LLM call [answer_generator]: input=3914 output=212 total=4126 tokens
+```
+
+---
+
 ## 11. Phase 4 — Retrieval (Stage 2 of the paper)
 
 **Directory:** `repoqa/retrieval/`
@@ -607,7 +647,7 @@ CONFIDENCE: <high | medium | low>
 
 **File:** `repoqa/qa/answer_generator.py`
 
-- Invokes the LLM via LangChain pipe (`chain = prompt | llm`) with `tenacity` retry (3 attempts, exponential 2-30s backoff).
+- Formats the prompt with `prompt.format_messages(...)`, invokes the LLM directly (`self.llm.invoke(messages)`) under `tenacity` retry (3 attempts, exponential 2-30s backoff), and pipes the formatted messages + response through `TOKEN_COUNTER.log_llm_call("answer_generator", ...)` for cost accounting (see section 10).
 - Parses the structured output with three regexes. Silent fallback if the format is ignored: whole output used as answer, confidence defaults to `"medium"`.
 - Handoff to `citation_verifier`.
 
