@@ -262,6 +262,89 @@ Figure~\ref{fig:architecture} presents the overall architecture of RepoQA, which
 \end{figure*}
 
 
+Figure~\ref{fig:pipeline} shows the concrete module-level pipeline as implemented in the \texttt{repoqa/} package. The offline path (top) runs once per repository and produces a vector index plus a dependency graph; the online path (bottom) runs per developer question and produces a verified, cited answer.
+
+\begin{figure*}[ht]
+\centering
+\begin{tikzpicture}[
+    font=\sffamily\scriptsize,
+    node distance=0.25cm and 0.25cm,
+    mod/.style={rectangle, rounded corners=2pt, draw, align=center,
+                minimum height=0.7cm, minimum width=1.55cm, line width=0.5pt,
+                font=\sffamily\scriptsize\ttfamily, inner sep=2pt},
+    iomod/.style={mod, fill=boxgray!40, draw=bordergray, font=\sffamily\scriptsize},
+    offmod/.style={mod, fill=boxblue!25, draw=borderblue},
+    sumod/.style={mod, fill=boxpurple!30, draw=borderpurple},
+    onmod/.style={mod, fill=boxorange!25, draw=borderorange},
+    storemod/.style={mod, fill=boxgreen!25, draw=bordergreen},
+    arr/.style={-{Stealth[scale=0.9]}, draw=gray!70, line width=0.5pt},
+    stage/.style={draw, dashed, inner sep=6pt, rounded corners=4pt, line width=0.5pt},
+    stagelabel/.style={font=\sffamily\bfseries\scriptsize}
+]
+
+% =========== OFFLINE: ingestion row + summarization/embedding row ===========
+\node[iomod]                              (repo)   {GitHub\\repo};
+\node[offmod, right=of repo]              (crawl)  {repo\_\\crawler};
+\node[offmod, right=of crawl]             (ast)    {ast\_\\chunker};
+\node[offmod, right=of ast]               (nonc)   {noncode\_\\chunker};
+\node[offmod, right=of nonc]              (dep)    {dep\_graph\_\\builder};
+
+\node[sumod,    below=0.55cm of repo]     (fsum)   {file\_\\summarizer};
+\node[sumod,    right=of fsum]            (dsum)   {dir\_\\summarizer};
+\node[sumod,    right=of dsum]            (psum)   {project\_\\summarizer};
+\node[storemod, right=of psum]            (emb)    {embedder};
+\node[storemod, right=of emb]             (chroma) {chroma\_\\store};
+
+\draw[arr] (repo)  -- (crawl);
+\draw[arr] (crawl) -- (ast);
+\draw[arr] (ast)   -- (nonc);
+\draw[arr] (nonc)  -- (dep);
+\draw[arr] (ast.south)  |- (fsum.east);
+\draw[arr] (fsum)  -- (dsum);
+\draw[arr] (dsum)  -- (psum);
+\draw[arr] (psum)  -- (emb);
+\draw[arr] (emb)   -- (chroma);
+\draw[arr] (dep.south) -| (chroma.north);
+
+\node[stage, borderblue, fit=(repo)(dep)(fsum)(chroma)] (stageA) {};
+\node[stagelabel, text=borderblue, anchor=north west]
+    at ([xshift=4pt, yshift=-3pt]stageA.north west)
+    {Stage~1 -- Offline (once per repo)};
+
+% =========== ONLINE: classify row + retrieve/generate row ===========
+\node[iomod, below=1.6cm of repo]         (q)      {question};
+\node[onmod, right=of q]                  (qcls)   {question\_\\classifier};
+\node[onmod, right=of qcls]               (router) {strategy\_\\router};
+\node[onmod, right=of router]             (qexp)   {query\_\\expander};
+\node[onmod, right=of qexp]               (hybrid) {hybrid\_\\retriever};
+
+\node[onmod, below=0.55cm of q]           (ctx)    {context\_\\builder};
+\node[onmod, right=of ctx]                (gen)    {answer\_\\generator};
+\node[onmod, right=of gen]                (cite)   {citation\_\\verifier};
+\node[iomod, right=of cite]               (ans)    {answer};
+
+\draw[arr] (q)      -- (qcls);
+\draw[arr] (qcls)   -- (router);
+\draw[arr] (router) -- (qexp);
+\draw[arr] (qexp)   -- (hybrid);
+\draw[arr] (hybrid.south) -| (ctx.north);
+\draw[arr] (ctx)    -- (gen);
+\draw[arr] (gen)    -- (cite);
+\draw[arr] (cite)   -- (ans);
+
+% offline -> online: index consumed by retriever
+\draw[arr, dashed] (chroma.south) to[out=-90, in=90, looseness=0.6] (hybrid.north);
+
+\node[stage, borderorange, fit=(q)(ans)(hybrid)(ctx)] (stageB) {};
+\node[stagelabel, text=borderorange, anchor=north west]
+    at ([xshift=4pt, yshift=-3pt]stageB.north west)
+    {Stage~2 -- Online (per question)};
+
+\end{tikzpicture}
+\caption{Concrete module-level pipeline as implemented in \texttt{repoqa/}. Solid arrows show data flow within a stage; the dashed arrow indicates that the online retriever consumes the index produced offline. Stage~1: \texttt{ingestion/}, \texttt{summarization/}, \texttt{embedding/}. Stage~2: \texttt{retrieval/}, \texttt{qa/}.}
+\label{fig:pipeline}
+\end{figure*}
+
 \subsection{Repository Ingestion \& Hierarchical Summarization}
 \label{sec:ingestion}
 
@@ -425,12 +508,12 @@ Each LLM-as-a-judge evaluation is executed 3 times and we report mean $\pm$ stan
 \subsection{Ablation Study (RQ3)}
 To isolate each component's contribution, we run the following ablations, each removing one component:
 
-\begin{table}[h]
+\begin{table*}[h]
 \centering
 \small
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Configuration} & \textbf{Summ.} & \textbf{Hybrid} & \textbf{QExp.} & \textbf{Route} \\
+\textbf{Configuration} & \textbf{Summaries} & \textbf{Hybrid (BM25 + sem.)} & \textbf{Query expansion} & \textbf{Type routing} \\
 \midrule
 Full RepoQA & \checkmark & \checkmark & \checkmark & \checkmark \\
 $-$ Summaries & & \checkmark & \checkmark & \checkmark \\
@@ -440,19 +523,19 @@ $-$ Type routing & \checkmark & \checkmark & \checkmark & \\
 BM25 baseline & & & & \\
 \bottomrule
 \end{tabular}
-\caption{Ablation configurations for RQ3.}
+\caption{Ablation configurations for RQ3. Each row toggles a single component to isolate its marginal contribution.}
 \label{tab:ablation}
-\end{table}
+\end{table*}
 
 \subsection{Expected Results}
 Based on CoReQA's reported baselines and our preliminary experiments, we anticipate results in the ranges shown in Table~\ref{tab:expected}.
 
-\begin{table}[h]
+\begin{table*}[h]
 \centering
 \small
 \begin{tabular}{lcccc}
 \toprule
-\textbf{System} & \textbf{Acc} & \textbf{Cmpt} & \textbf{Rel} & \textbf{Clar} \\
+\textbf{System} & \textbf{Accuracy} & \textbf{Completeness} & \textbf{Relevance} & \textbf{Clarity} \\
 \midrule
 No Retrieval & 6.85 & 6.27 & 7.81 & 8.40 \\
 BM25 (reported) & 6.91 & 6.34 & 7.86 & 8.42 \\
@@ -461,7 +544,7 @@ RepoQA (expected) & \textbf{7.4--7.8} & \textbf{6.8--7.2} & \textbf{8.0--8.3} & 
 \end{tabular}
 \caption{Expected performance ranges on CoReQA (Qwen-7B as generator). ``Reported'' values from \citet{chen2025coreqa}.}
 \label{tab:expected}
-\end{table}
+\end{table*}
 
 % ============================================================
 % 7. DISCUSSION
@@ -476,46 +559,80 @@ RepoQA (expected) & \textbf{7.4--7.8} & \textbf{6.8--7.2} & \textbf{8.0--8.3} & 
 
 \textbf{RQ3} is evaluated through the ablation study (Table~\ref{tab:ablation}), quantifying each component's marginal contribution. The hypothesis that hierarchical summaries contribute most to completeness, hybrid fusion contributes most to accuracy, and query expansion contributes most to relevance.
 
+\subsection{Empirical Findings (Pilot)}
+\label{sec:findings}
+
+We report results from a 12-question pilot run on \texttt{pallets/flask} (4 architecture / 4 logic / 4 deployment), executed across all six ablation configurations defined in Table~\ref{tab:ablation}. Gold paths were derived by reading each issue and grounding against the current flask source; gold answers were rewritten from the source code rather than taken from issue comments, after we observed that the original CoReQA-style mining rule (top comment with $\geq 3$ reactions) systematically picks workarounds, opinions, links, or triage notes rather than authoritative explanations (0 of 12 issue comments in our sample were adequate gold answers).
+
+\paragraph{Error distribution.} Each (config, question) row was assigned to one of seven mutually exclusive failure buckets in priority order: retrieval miss, empty context, wrong routing, cited wrong path, unverified citation, low judge quality, or clean pass. Table~\ref{tab:error-dist} reports the distribution per ablation.
+
+\begin{table*}[h]
+\centering
+\small
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Configuration} & \textbf{Empty context} & \textbf{Wrong routing} & \textbf{Cited wrong path} & \textbf{Unverified citation} & \textbf{Clean pass} & \textbf{Recall@k (kw)} \\
+\midrule
+\texttt{bm25\_baseline}  & 4 & 3 & 0 & 3 & 2 & 53.9\% \\
+\texttt{full\_repoqa}    & 4 & 3 & 1 & 1 & \textbf{3} & 53.8\% \\
+\texttt{no\_expansion}   & 3 & 3 & 2 & 0 & 3 & 41.6\% \\
+\texttt{no\_routing}     & 4 & 3 & 2 & 0 & 3 & 51.7\% \\
+\texttt{no\_summaries}   & 5 & 2 & 2 & 0 & 3 & 50.6\% \\
+\texttt{semantic\_only}  & 5 & 2 & 1 & 1 & 3 & 49.9\% \\
+\bottomrule
+\end{tabular}
+\caption{Error distribution per ablation configuration on the 12-question flask pilot. Buckets are mutually exclusive and evaluated in priority order. ``Retrieval miss'' (0--1 across configs) and ``low judge quality'' (0 across configs) are omitted; each row sums to 12.}
+\label{tab:error-dist}
+\end{table*}
+
+Three observations. (a)~The dominant failure mode in every configuration is \emph{empty\_context} (3--5 of 12)---answers generated without inline citations---which suggests prompt-level enforcement (require citations or refuse) would yield a larger gain than further retrieval tuning. (b)~Architecture questions are the weakest type: 0 of 4 reached \texttt{clean\_pass} on \texttt{full\_repoqa}, with two failing on empty context and one each on wrong routing and cited-wrong-path. (c)~The keyword-overlap recall metric reports \texttt{full\_repoqa} (53.8\%) and \texttt{bm25\_baseline} (53.9\%) as tied, but the chunk-overlap signal disagrees: \texttt{bm25\_baseline} retrieves a gold-path file in 50\% of questions versus 41.7\% for \texttt{full\_repoqa}---an inversion that the keyword metric obscures. The summary and expansion layers improve citation accuracy (91.7\% vs 75\%) and judge accuracy (6.97 vs 6.69) but at a cost to retrieval precision on this slice.
+
+\paragraph{Systemic finding: citation-path drift.} Across the full 138-row run, 10 of 122 file-path citations (8.2\%) drop the \texttt{src/} prefix---e.g., the model writes \texttt{[flask/app.py]} rather than \texttt{[src/flask/app.py]}. The chunker stores paths as \texttt{src/flask/...} (relative to repo root); the LLM defaults to the human convention of \texttt{flask/...}. Every bare-prefix citation fails the path-equality check in the citation verifier even when the cited claim is correct. This is a structural mismatch between two pipeline components, not a model failure: the trigger condition is decidable (\texttt{path.startswith("flask/")}), the rate is constant across configurations (it does not change when retrieval is ablated, confirming the issue is upstream of retrieval), and a one-line fix in either the verifier (suffix-match instead of equality) or the prompt template (use \texttt{[src/flask/...]} in the example citation) eliminates the entire failure category. We classify this as the only systemic error in our pilot; the remaining failures are model-quality issues without a single closed-form fix.
+
+\paragraph{Summary-level validation.} A separate analysis pass verified all 213 hierarchical summaries (1 project, 31 directory, 181 file) against four deterministic checks (self-mention, length band, scope appropriateness, identifier grounding). Pass rates were 100\%, 90.3\%, and 65.7\% respectively. A 12-summary stratified sample was then hand-reviewed semantically by re-reading the source chunks. The most consequential finding was a \emph{deterministic-pass / semantic-partial} case: the project-level summary passed every automated check but materially omits \texttt{src/flask/} (the actual flask package, 210 indexed chunks) and \texttt{examples/} (90 chunks) from its directory enumeration. Because the project summary gates retrieval for every architecture question, this single defect is a plausible upstream contributor to the architecture-class weakness observed in Table~\ref{tab:error-dist}.
+
 \subsection{Broader Implications}
 
-If the hybrid retrieval approach demonstrates significant improvement over BM25, this has immediate practical implications for AI coding assistants. The same pipeline could be integrated into IDE chat interfaces (Cursor, JetBrains AI), documentation generators, and developer onboarding tools. The hierarchical summarization layer is also independently valuable: it produces human-readable project documentation as a byproduct of the indexing process.
+If the hybrid retrieval approach demonstrates significant improvement over BM25, this has immediate practical implications for AI coding assistants. The same pipeline could be integrated into IDE chat interfaces (Cursor, JetBrains AI), documentation generators, and developer onboarding tools. The hierarchical summarization layer is also independently valuable: it produces human-readable project documentation as a byproduct of the indexing process. The pilot results in Section~\ref{sec:findings} also suggest that any system claiming improvement over BM25 should report chunk-overlap retrieval recall in addition to keyword-overlap recall---the metric inversion we observed indicates that keyword overlap can mask genuine retrieval-quality differences between configurations.
 
 % ============================================================
-% 8. PROGRESS SUMMARY
+% 8. CONCLUSION
 % ============================================================
-\section{Summary of Progress}
+\section{Conclusion}
 
-\subsection{Completed}
+\subsection{Implementation Summary}
 \begin{itemize}
-    \item Literature review of 8 core papers spanning code QA, RAG for code, and repository-level understanding.
-    \item System architecture design with four-layer pipeline.
-    \item Technology stack selection: Python, Tree-sitter, ChromaDB, LangChain, OpenAI/Claude APIs.
-    \item CoReQA benchmark downloaded and analyzed (20+ QA pairs examined in detail).
-    \item Question taxonomy defined (architecture / logic / deployment) with examples from CoReQA.
-    \item Evaluation framework defined using CoReQA's LLM-as-a-judge with ablation study design.
-    \item Project repository initialized with README and environment configuration.
+    \item Literature review and system architecture for the four-layer pipeline.
+    \item \textbf{Stage 1 (offline)}: repository crawler with binary/extension filtering; AST-aware chunker over 8 tree-sitter grammars; non-code chunker for Markdown / TOML / YAML / Dockerfile; import dependency-graph builder; hierarchical summarizer (file $\rightarrow$ directory $\rightarrow$ project) using Qwen2.5-7B via Ollama.
+    \item \textbf{Stage 2 (online)}: regex-based and LLM-based question classifiers; per-type strategy router; LLM query expander; BM25 retriever; semantic retriever over ChromaDB (cosine); RRF fusion.
+    \item \textbf{Stage 3 (online)}: token-budgeted context builder; type-specific prompt templates; structured ANSWER/CITATIONS/CONFIDENCE answer generator; citation verifier (path + line-range overlap).
+    \item \textbf{Stage 4}: Streamlit chat UI with clickable source references.
+    \item \textbf{Evaluation infrastructure}: deterministic metrics (recall@k, citation accuracy); LLM-as-a-judge with cross-family pairing (Gemini 2.5 Flash judging Qwen output) and runs-$N$ averaging; ablation runner across six configurations; markdown report generator from JSONL.
+    \item \textbf{Dataset construction}: CoReQA-style mining harness for 18 repositories (976 QA pairs), with a curated 23-question \texttt{flask} subset (\texttt{flask\_curated.json}) used for the development pilot. A 12-question gold subset (\texttt{flask\_gold12.json}) was hand-curated with code-grounded answers after we identified that the issue-comment mining rule (top comment by reactions) systematically picks workarounds, opinions, and triage notes rather than authoritative explanations (Section~\ref{sec:findings}).
+    \item \textbf{Cost accounting}: unified \texttt{TokenCounter} singleton wrapping the Qwen tokenizer, instrumenting every LLM call site with input/output token logging; offline (summarization + embedding) and online (per-question) cost projections across five paid backends and the local Ollama path (Section~\ref{sec:cost}).
+    \item \textbf{Pilot run}: 12 questions $\times$ 6 ablation configurations against the 23-question flask suite, yielding the error distribution in Table~\ref{tab:error-dist}, the metric-inversion finding (BM25 retrieves gold paths in 50\% of questions versus 41.7\% for full RepoQA), and the systemic citation-prefix-drift defect documented in Section~\ref{sec:findings}.
+    \item \textbf{Summary validation}: deterministic + qualitative pipeline validating all 213 generated summaries, surfacing one deterministic-pass / semantic-partial case (the project-level summary omits \texttt{src/flask/} and \texttt{examples/}) that plausibly contributes to architecture-class weakness.
 \end{itemize}
 
-\subsection{Remaining Work}
+\subsection{Future Work}
 \begin{itemize}
-    \item Repository ingestion pipeline (Tree-sitter parsing, AST-aware chunking).
-    \item Hierarchical summarization prompts and generation pipeline.
-    \item Embedding pipeline and ChromaDB integration.
-    \item Hybrid retrieval engine with RRF fusion.
-    \item Question classifier and type-aware routing.
-    \item Structured prompt templates and hallucination checker.
-    \item Web UI (Streamlit) with source reference linking.
-    \item Full CoReQA benchmark evaluation.
-    \item Ablation study and user study (3--5 developers).
-    \item Final report and presentation.
+    \item \textbf{Scale beyond $N=12$.} The pilot's bucket-level intervals are too wide for any cell in Table~\ref{tab:error-dist} to be statistically conclusive. Target $N \geq 50$ on the curated flask set, then full CoReQA (1{,}563 pairs across 176 repositories), pending API budget.
+    \item \textbf{Wire the dependency graph into retrieval.} The graph is currently constructed at ingestion but not consumed; \texttt{hybrid\_retriever} fuses semantic + BM25 only. Adding a third RRF input ranked by import/call-edge proximity would let us test the original three-way fusion hypothesis.
+    \item \textbf{Fix the systemic citation-prefix drift.} A one-line change in either the citation verifier (suffix-match) or the prompt template (use \texttt{[src/flask/...]} in the example) will eliminate the bare-prefix failure category and unbias inter-config comparisons of citation accuracy.
+    \item \textbf{Address empty-context failures.} The dominant failure mode (3--5 of 12 per config) is answers without inline citations. A prompt-level constraint that requires citations or explicit refusal would set a floor; an empty-retrieval short-circuit in the QA pipeline would prevent parametric-memory answers when retrieval returns nothing.
+    \item \textbf{Drift-resistant gold via PR linkage.} For issues with linked closing PRs, the diff's \texttt{files\_changed} list yields gold paths automatically and is naturally drift-proof at the resolving commit SHA (the SWE-bench mechanism). Estimated coverage on flask: 60--70\%.
+    \item \textbf{Symbol-anchored chunk identity.} Chunk IDs currently hash \texttt{(repo\_path, start\_line)}, which breaks under refactor. Re-keying on \texttt{(repo\_path, symbol\_name, symbol\_kind)} eliminates drift from line-shifting refactors and aligns with how Sourcegraph SCIP and Cursor track references.
+    \item \textbf{Improve the project-level summary.} The current summary's omission of \texttt{src/flask/} and \texttt{examples/} should be addressed by making the project summarizer enumerate top-level directories from the index rather than from the file-summary aggregation, which evidently dropped two of them.
+    \item \textbf{Layered summary verification.} Pair the deterministic checks (already deployed) with an LLM-as-judge faithfulness pass on (a)~all project summaries and (b)~all top-level directory summaries, since these have the largest blast radius. Mutation-tested calibration of the judge is the path to scaling this without proportional human work.
 \end{itemize}
 
-\subsection{Risks and Mitigation}
+\subsection{Limitations and Mitigations}
 \begin{itemize}
-    \item \textbf{LLM API costs:} Mitigated by caching embeddings and summaries; using cheaper models during development.
-    \item \textbf{Hierarchical summarization quality:} Iterative prompt refinement with manual validation on 3--5 repos.
-    \item \textbf{Evaluation variance:} Running LLM-as-a-judge 3--5 times per evaluation and reporting mean $\pm$ std.
-    \item \textbf{CoReQA data access:} Dataset is publicly available; repo cloning may face rate limits (mitigated by pre-cloning).
+    \item \textbf{Statistical power.} At $N=12$, individual bucket counts in Table~\ref{tab:error-dist} have wide intervals; conclusions are directional. Mitigation: report effect sizes alongside counts and treat $N=12$ findings as hypothesis-generating until the larger run completes.
+    \item \textbf{Self-evaluation bias in LLM-as-judge.} The Qwen generator and the Gemini judge are different model families by design; for the 12-question pilot the judge accuracies cluster at 6.6--7.0, lower than typical generator-side self-grading.
+    \item \textbf{Gold-label correctness.} The 12-question gold subset was hand-curated by reading the flask source directly; entries are flagged for human verification but every gold path was confirmed to exist in the indexed corpus before commit.
+    \item \textbf{LLM API cost drift.} \texttt{TokenCounter}-instrumented per-call logging plus the offline/online cost projection table (Table~\ref{tab:cost-providers}) bound spending in advance and let configuration changes be screened for cost impact before commit.
+    \item \textbf{Evaluation variance.} The judge is run $N=3$ times per (config, question) and we report mean $\pm$ std on each cell; deterministic metrics carry no variance.
 \end{itemize}
 
 % ============================================================

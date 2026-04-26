@@ -1,9 +1,9 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  25 APR 2026 10:37
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  25 APR 2026 21:47
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**docs/pdflatex/RepoQA_Report.tex
-(./docs/pdflatex/RepoQA_Report.tex
+**/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.tex
+(/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.tex
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
 (/usr/local/texlive/2025/texmf-dist/tex/latex/base/article.cls
@@ -23,7 +23,7 @@ File: size11.clo 2024/06/29 v1.4n Standard LaTeX file (size option)
 \belowcaptionskip=\skip50
 \bibindent=\dimen141
 )
-(docs/pdflatex/acl_style.sty
+(/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/acl_style.sty
 Package: acl_style 2024/01/01 ACL Style
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/geometry/geometry.sty
@@ -807,7 +807,7 @@ File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count335
 \l__pdf_internal_box=\box74
 )
-(docs/pdflatex/RepoQA_Report.aux)
+(/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.aux)
 \openout1 = `RepoQA_Report.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 45.
@@ -907,7 +907,8 @@ e
 ))
 Package hyperref Info: Link coloring ON on input line 45.
 
-(docs/pdflatex/RepoQA_Report.out) (docs/pdflatex/RepoQA_Report.out)
+(/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.out)
+(/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.out)
 \@outlinefile=\write4
 \openout4 = `RepoQA_Report.out'.
 
@@ -1039,7 +1040,13 @@ Package microtype Info: Loading generic protrusion settings for font family
 LaTeX Font Info:    Font shape `T1/phv/m/it' in size <8> not available
 (Font)              Font shape `T1/phv/m/sl' tried instead on input line 259.
 
-Overfull \hbox (5.43024pt too wide) in paragraph at lines 270--271
+Overfull \hbox (10.55638pt too wide) in paragraph at lines 265--266
+[]\T1/ptm/m/n/10.95 (-20) Figure [][]2[][] shows the con-crete module-level pip
+eline
+ []
+
+
+Overfull \hbox (5.43024pt too wide) in paragraph at lines 353--354
  []\T1/ptm/b/n/10.95 (-20) Code Pars-ing.[] \T1/ptm/m/n/10.95 (-20) Use Tree-si
 tter to parse each source
  []
@@ -1047,22 +1054,22 @@ tter to parse each source
 
 
 
-Overfull \hbox (0.10585pt too wide) in paragraph at lines 274--276
+Overfull \hbox (0.10585pt too wide) in paragraph at lines 357--359
  []\T1/ptm/b/n/10.95 (-20) Hierarchical Sum-ma-riza-tion.[] \T1/ptm/m/n/10.95 (
 -20) In-spired by [][]Tufek
  []
 
-LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 2
-76.
+LaTeX Font Info:    Trying to load font information for TS1+ptm on input line 3
+59.
 (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ts1ptm.fd
 File: ts1ptm.fd 2001/06/04 font definitions for TS1/ptm.
 )
-Overfull \hbox (1.1441pt too wide) in paragraph at lines 285--285
+Overfull \hbox (1.1441pt too wide) in paragraph at lines 368--368
 []\T1/ptm/b/n/10.95 (-20) Hybrid Re-trieval with Question-Type Rout-
  []
 
 
-Overfull \hbox (16.7541pt too wide) in paragraph at lines 288--290
+Overfull \hbox (16.7541pt too wide) in paragraph at lines 371--373
 \T1/ptm/m/n/10.95 (-20) ques-tion into one of three cat-e-gories us-ing a light
 weight
  []
@@ -1070,13 +1077,13 @@ weight
 
 
 [3]
-Overfull \hbox (7.23264pt too wide) in paragraph at lines 306--307
+Overfull \hbox (7.23264pt too wide) in paragraph at lines 389--390
 []\T1/ptm/b/n/10.95 (-20) Structural search: \T1/ptm/m/n/10.95 (-20) De-pen-den
 cy graph traversal---
  []
 
 
-Overfull \hbox (2.7555pt too wide) in paragraph at lines 312--314
+Overfull \hbox (2.7555pt too wide) in paragraph at lines 395--397
 \T1/ptm/m/n/10.95 (-20) based rank-ings re-spec-tively, and $\OML/cmm/m/it/10.9
 5 k \OT1/cmr/m/n/10.95 = 60$ \T1/ptm/m/n/10.95 (-20) is a smooth-
  []
@@ -1084,85 +1091,229 @@ Overfull \hbox (2.7555pt too wide) in paragraph at lines 312--314
 
 
 
-Overfull \hbox (5.58838pt too wide) in paragraph at lines 340--341
+Overfull \hbox (5.58838pt too wide) in paragraph at lines 423--424
 \T1/ptm/m/n/10.95 (-20) Because Re-poQA is in-tended to be re-implementable
  []
 
 
-Overfull \hbox (13.77057pt too wide) in paragraph at lines 340--341
+Overfull \hbox (13.77057pt too wide) in paragraph at lines 423--424
 \T1/ptm/m/n/10.95 (-20) counts are ob-tained from the uni-fied \T1/pcr/m/n/10.9
 5 TokenCounter
  []
 
 
-LaTeX Warning: `h' float specifier changed to `ht'.
-
-
 
 [4]
 
+LaTeX Warning: `h' float specifier changed to `ht'.
 
-Overfull \hbox (17.23189pt too wide) in paragraph at lines 391--392
+
+Overfull \hbox (17.23189pt too wide) in paragraph at lines 474--475
 \T1/ptm/m/n/10.95 (-20) For each repos-i-tory, pre-pro-cess-ing in-volves: (1) 
 cloning
  []
 
 
-Overfull \hbox (3.97655pt too wide) in paragraph at lines 407--408
+
+
+Overfull \hbox (3.97655pt too wide) in paragraph at lines 490--491
 \T1/ptm/m/n/10.95 (-20) inter-system com-par-i-son, \T1/ptm/b/n/10.95 (-20) Re-
 trieval Recall@$\OML/cmm/m/it/10.95 k$ \T1/ptm/m/n/10.95 (-20) ($\OML/cmm/m/it/
 10.95 k$\T1/ptm/m/n/10.95 (-20) =5,
  []
 
 
-
-[5]
-Overfull \hbox (5.4514pt too wide) in paragraph at lines 420--421
+Overfull \hbox (5.4514pt too wide) in paragraph at lines 503--504
 []\T1/ptm/b/n/10.95 (-20) Semantic Only: \T1/ptm/m/n/10.95 (-20) Embedding-base
 d re-trieval with-
  []
 
 
-Overfull \hbox (58.9697pt too wide) in paragraph at lines 431--443
- [][] 
- []
+
+[5]
+
+LaTeX Warning: `h' float specifier changed to `ht'.
 
 
-Overfull \hbox (41.01341pt too wide) in paragraph at lines 453--462
- [][] 
- []
+LaTeX Warning: `h' float specifier changed to `ht'.
 
 
-
-
-Overfull \hbox (23.9142pt too wide) in paragraph at lines 475--476
+Overfull \hbox (23.9142pt too wide) in paragraph at lines 558--559
 \T1/ptm/m/n/10.95 (-20) routed re-trieval against uni-form re-trieval, with CoR
 eQA's
  []
 
 
-Overfull \hbox (64.34822pt too wide) in paragraph at lines 475--476
+Overfull \hbox (64.34822pt too wide) in paragraph at lines 558--559
 \T1/ptm/m/n/10.95 (-20) ques-tions man-u-ally cat-e-go-rized into ar-chi-tec-tu
 re/logic/deployment
  []
 
 
-Overfull \hbox (11.83041pt too wide) in paragraph at lines 491--492
-[]\T1/ptm/m/n/10.95 (-20) System ar-chi-tec-ture de-sign with four-layer pipeli
-ne. 
+
+
+Overfull \hbox (96.39256pt too wide) in paragraph at lines 572--584
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Overfull \hbox (3.71169pt too wide) in paragraph at lines 588--589
+\T1/ptm/m/n/10.95 (-20) of 12)---answers gen-er-ated with-out in-line citations
+---
+ []
+
+
+Overfull \hbox (27.07564pt too wide) in paragraph at lines 588--589
+\T1/ptm/m/n/10.95 (-20) re-ports \T1/pcr/m/n/10.95 full_repoqa \T1/ptm/m/n/10.9
+5 (-20) (53.8%) and \T1/pcr/m/n/10.95 bm25_baseline
+ []
+
+
+Overfull \hbox (37.06485pt too wide) in paragraph at lines 588--589
+\T1/ptm/m/n/10.95 (-20) file in 50% of ques-tions ver-sus 41.7% for \T1/pcr/m/n
+/10.95 full_repoqa\T1/ptm/m/n/10.95 (-20) ---
+ []
+
+
+Overfull \hbox (3.92056pt too wide) in paragraph at lines 590--591
+\T1/ptm/m/n/10.95 (-20) (8.2%) drop the \T1/pcr/m/n/10.95 src/ \T1/ptm/m/n/10.9
+5 (-20) prefix---e.g., the model writes
+ []
+
+
+Overfull \hbox (41.66457pt too wide) in paragraph at lines 590--591
+\T1/pcr/m/n/10.95 [flask/app.py] \T1/ptm/m/n/10.95 (-20) rather than \T1/pcr/m/
+n/10.95 [src/flask/app.py]\T1/ptm/m/n/10.95 (-20) .
+ []
+
+
+Overfull \hbox (3.98036pt too wide) in paragraph at lines 590--591
+\T1/ptm/m/n/10.95 (-20) The chun-ker stores paths as \T1/pcr/m/n/10.95 src/flas
+k/... \T1/ptm/m/n/10.95 (-20) (rel-
  []
 
 
 
 [6]
-Overfull \hbox (1.95494pt too wide) in paragraph at lines 517--518
-[]\T1/ptm/b/n/10.95 (-20) Evaluation vari-ance: \T1/ptm/m/n/10.95 (-20) Run-nin
-g LLM-as-a-judge
+
+
+Overfull \hbox (3.76874pt too wide) in paragraph at lines 606--607
+\T1/ptm/m/n/10.95 (-20) nary/extension fil-ter-ing; AST-aware chun-ker over
  []
 
-(docs/pdflatex/RepoQA_Report.bbl
+
+Overfull \hbox (2.43513pt too wide) in paragraph at lines 606--607
+\T1/ptm/m/n/10.95 (-20) port dependency-graph builder; hi-er-ar-chi-cal sum-
+ []
 
 
+Overfull \hbox (16.73682pt too wide) in paragraph at lines 606--607
+\T1/ptm/m/n/10.95 (-20) ma-rizer (file $\OMS/cmsy/m/n/10.95 !$ \T1/ptm/m/n/10.9
+5 (-20) di-rec-tory $\OMS/cmsy/m/n/10.95 !$ \T1/ptm/m/n/10.95 (-20) project) us
+-ing Qwen2.5-
+ []
+
+
+
+[7]
+Overfull \hbox (4.11334pt too wide) in paragraph at lines 608--609
+[]\T1/ptm/b/n/10.95 (-20) Stage 3 (on-line)\T1/ptm/m/n/10.95 (-20) : token-budg
+eted con-text builder;
+ []
+
+
+Overfull \hbox (3.98412pt too wide) in paragraph at lines 608--609
+\T1/ptm/m/n/10.95 (-20) SWER/CITATIONS/CONFIDENCE an-swer gen-
+ []
+
+
+Overfull \hbox (75.8231pt too wide) in paragraph at lines 611--612
+\T1/ptm/m/n/10.95 (-20) a cu-rated 23-question \T1/pcr/m/n/10.95 flask \T1/ptm/
+m/n/10.95 (-20) sub-set (\T1/pcr/m/n/10.95 flask_curated.json\T1/ptm/m/n/10.95 
+(-20) )
+ []
+
+
+Overfull \hbox (6.31277pt too wide) in paragraph at lines 611--612
+\T1/ptm/m/n/10.95 (-20) gold sub-set (\T1/pcr/m/n/10.95 flask_gold12.json\T1/pt
+m/m/n/10.95 (-20) ) was hand-
+ []
+
+
+Overfull \hbox (0.21516pt too wide) in paragraph at lines 612--613
+[]\T1/ptm/b/n/10.95 (-20) Cost ac-count-ing\T1/ptm/m/n/10.95 (-20) : uni-fied \
+T1/pcr/m/n/10.95 TokenCounter \T1/ptm/m/n/10.95 (-20) sin-
+ []
+
+
+
+
+Overfull \hbox (12.16931pt too wide) in paragraph at lines 614--615
+\T1/ptm/m/n/10.95 (-20) maries, sur-fac-ing one deterministic-pass / semantic-
+ []
+
+
+Overfull \hbox (3.47272pt too wide) in paragraph at lines 620--621
+\T1/ptm/m/n/10.95 (-20) but not con-sumed; \T1/pcr/m/n/10.95 hybrid_retriever \
+T1/ptm/m/n/10.95 (-20) fuses
+ []
+
+
+Overfull \hbox (42.77437pt too wide) in paragraph at lines 621--622
+\T1/ptm/m/n/10.95 (-20) match) or the prompt tem-plate (use \T1/pcr/m/n/10.95 [
+src/flask/...]
+ []
+
+
+
+[8]
+Overfull \hbox (24.55115pt too wide) in paragraph at lines 623--624
+\T1/ptm/m/n/10.95 (-20) with linked clos-ing PRs, the diff's \T1/pcr/m/n/10.95 
+files_changed
+ []
+
+
+Overfull \hbox (9.04681pt too wide) in paragraph at lines 624--625
+\T1/ptm/m/n/10.95 (-20) cur-rently hash \T1/pcr/m/n/10.95 (repo_path, start_lin
+e)\T1/ptm/m/n/10.95 (-20) ,
+ []
+
+
+Overfull \hbox (45.38643pt too wide) in paragraph at lines 624--625
+\T1/ptm/m/n/10.95 (-20) which breaks un-der refac-tor. Re-keying on \T1/pcr/m/n
+/10.95 (repo_path,
+ []
+
+
+Overfull \hbox (4.49838pt too wide) in paragraph at lines 624--625
+\T1/pcr/m/n/10.95 symbol_name, symbol_kind) \T1/ptm/m/n/10.95 (-20) elim-i-nate
+s
+ []
+
+
+Overfull \hbox (0.73099pt too wide) in paragraph at lines 626--627
+\T1/ptm/m/n/10.95 (-20) LLM-as-judge faith-ful-ness pass on (a) all project
+ []
+
+
+Overfull \hbox (1.56125pt too wide) in paragraph at lines 631--632
+[]\T1/ptm/b/n/10.95 (-20) Statistical power. \T1/ptm/m/n/10.95 (-20) At $\OML/c
+mm/m/it/10.95 N \OT1/cmr/m/n/10.95 = 12$\T1/ptm/m/n/10.95 (-20) , in-di-vid-ual
+ bucket
+ []
+
+
+Overfull \hbox (26.26393pt too wide) in paragraph at lines 634--635
+[]\T1/ptm/b/n/10.95 (-20) LLM API cost drift. \T1/pcr/m/n/10.95 TokenCounter\T1
+/ptm/m/n/10.95 (-20) -instrumented
+ []
+
+
+
+(/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.bbl
 Underfull \hbox (badness 6047) in paragraph at lines 39--42
 []\T1/ptm/m/n/10.95 (+20) CodeRepoQA Au-thors.  CodeRe-poQA: A
  []
@@ -1175,7 +1326,7 @@ Xiv preprint
 
 
 
-[7])
+[9])
 
 Package caption Warning: Unused \captionsetup[sub] on input line 7.
 See the caption package documentation for explanation.
@@ -1184,24 +1335,24 @@ See the caption package documentation for explanation.
 
 
 
-[8
+[10
 
-] [9] (docs/pdflatex/RepoQA_Report.aux)
+] [11] [12] (/Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 Package rerunfilecheck Info: File `RepoQA_Report.out' has not changed.
-(rerunfilecheck)             Checksum: 2617DE3A2A572408F3E3EA63201D2872;4763.
+(rerunfilecheck)             Checksum: 5089B47047E31E6CBF3EFE6AC07FDB6B;5000.
  ) 
 Here is how much of TeX's memory you used:
- 27982 strings out of 473190
- 523355 string characters out of 5715801
- 964586 words of memory out of 5000000
- 50294 multiletter control sequences out of 15000+600000
- 629172 words of font info for 336 fonts, out of 8000000 for 9000
+ 28190 strings out of 473190
+ 526933 string characters out of 5715801
+ 1001797 words of memory out of 5000000
+ 50459 multiletter control sequences out of 15000+600000
+ 635481 words of font info for 361 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 99i,11n,101p,1704b,931s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 99i,11n,101p,1733b,931s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb>
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></
@@ -1216,10 +1367,11 @@ texmf-dist/fonts/type1/urw/helvetic/uhvro8a.pfb></usr/local/texlive/2025/texmf-
 dist/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2025/texmf-dist/fonts
 /type1/urw/times/utmr8a.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/urw
 /times/utmri8a.pfb>
-Output written on docs/pdflatex/RepoQA_Report.pdf (9 pages, 209382 bytes).
+Output written on /Users/sushmi/dev/nlp/repoqa/docs/pdflatex/RepoQA_Report.pdf 
+(12 pages, 228028 bytes).
 PDF statistics:
- 374 PDF objects out of 1000 (max. 8388607)
- 329 compressed objects within 4 object streams
- 87 named destinations out of 1000 (max. 500000)
- 69869 words of extra memory for PDF output out of 74296 (max. 10000000)
+ 408 PDF objects out of 1000 (max. 8388607)
+ 360 compressed objects within 4 object streams
+ 96 named destinations out of 1000 (max. 500000)
+ 77045 words of extra memory for PDF output out of 89155 (max. 10000000)
 
